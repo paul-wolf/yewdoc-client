@@ -9,6 +9,9 @@ import requests
 from requests.auth import HTTPBasicAuth
 from strgen import StringGenerator as SG
 import json
+import shutil
+
+requests.packages.urllib3.disable_warnings()
 
 yew = None
 
@@ -34,6 +37,13 @@ def is_uuid(uid):
     uuidregex = re.compile('[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z', re.I)
     return uuidregex.match(uid)
 
+def delete_directory(folder):
+    """Delete directory p and all sub directories and files."""
+    try:
+        shutil.rmtree(folder)    
+    except Exception, e:
+        print e
+
 class Document(object):
     """Describes a document."""
     def __init__(self,store,uid,name,location,kind):
@@ -44,6 +54,7 @@ class Document(object):
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
         if not os.path.exists(self.path):
             raise Exception("Non-existant document: %s" % self.path)
+        self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
 
     def serialize(self, no_uid=False):
         """Serialize as json to send to server."""
@@ -110,6 +121,60 @@ class YewStore(object):
         conn.commit()
         return conn
 
+    def delete_document(self,doc,local_only=True):
+        """Delete a document and it's associated entities."""
+
+        home = expanduser("~")
+        yew_dir = os.path.join(home,'.yew.d')
+        # remove record
+        c = self.conn.cursor()
+        sql = "DELETE FROM document WHERE uid = ?"
+        c.execute(sql,(doc.uid,))
+
+        # remove files
+        path = doc.directory_path
+        # sanity check
+        if not path.startswith(yew_dir): 
+            raise Exception("Path for deletion is wrong: %s" % path)
+        shutil.rmtree(path)
+
+        # tell server if removing remote
+        if not local_only:
+            # delete on server
+            pass
+
+        self.conn.commit()
+        self.conn.close()
+
+    def update_recent(self,username,doc):
+        """Update most recent list.
+        Return list of uids.
+        """
+        list_unparsed = self.get_user_pref(username,"recent_list")
+        if list_unparsed:
+            list_parsed = json.loads(list_unparsed)
+        else:
+            list_parsed = []
+        if doc.uid in list_parsed:
+            list_parsed.remove(doc.uid)  # take it out
+        list_parsed.insert(0,doc.uid) # make it the first one
+        # now save the new list
+        self.put_user_pref(username,'recent_list',json.dumps(list_parsed))
+
+    def get_recent(self,username):
+        """Get most recent documents."""
+        list_unparsed = self.get_user_pref(username,"recent_list")
+        docs = []
+        if list_unparsed:
+            list_parsed = json.loads(list_unparsed)
+            for uid in list_parsed:
+                d = self.get_doc(uid)
+                if d:
+                    docs.append(d)
+            return docs
+        return []
+        
+
     def get_global(self,k):
         #print "get_global (key): ", k
         v = None
@@ -167,7 +232,7 @@ class YewStore(object):
         return v
 
     def put_user_pref(self,username,k,v):
-        print "put_user_pref (%s,%s,%s): "% (username,k,v)
+        #print "put_user_pref (%s,%s,%s): "% (username,k,v)
         if not username or not k or not v:
             print "not storing nulls"
             return # don't store null values
@@ -181,7 +246,7 @@ class YewStore(object):
             sql = "INSERT INTO user_prefs VALUES (?,?,?)"
             c.execute(sql,(username,k,v))
             self.conn.commit()
-        print self.get_user_pref(username,k)
+        #print self.get_user_pref(username,k)
 
         c.close()
 
@@ -233,6 +298,22 @@ class YewStore(object):
         sql = "select uid,name,location,kind FROM document WHERE name LIKE ?"
         c = self.conn.cursor()
         c.execute(sql,("%"+name_frag+"%",))
+        rows = c.fetchall()
+        docs = []
+        for row in rows:
+            docs.append(Document(self,row[0],row[1],row[2],row[3]))
+        c.close()
+        return docs
+
+    def get_docs(self):
+        """Get all docs."""
+
+        username = self.get_global('username')
+        location_url = self.get_user_pref(username,'yewdoc_url.default')
+        doc = None
+        sql = "select uid,name,location,kind FROM document"
+        c = self.conn.cursor()
+        c.execute(sql)
         rows = c.fetchall()
         docs = []
         for row in rows:
@@ -346,7 +427,7 @@ class YewCLI(object):
         if os.path.exists(p):
             self.store.index_doc(uid,name,location)
 
-        print "PUTTING THIS IN CURRENT: ", uid
+        # make this the current document
         yew.store.put_user_pref('yewser','current_doc',uid)
 
         return self.store.get_doc(uid)
@@ -421,19 +502,26 @@ def user_pref(name,value):
         yew.store.put_user_pref(username,name,value)
     else:
         click.echo("%s = %s" % (name,yew.store.get_user_pref(username,name)))
+
+def document_menu(docs):
+    """Show list of docs. Return selection."""
+    for index,doc in enumerate(docs):
+        click.echo("%s) %s" % (index,doc.name))
+    v = click.prompt('Select document to edit', type=int)
+    if not v in range(len(docs)):
+        print "Choice not in range"
+        sys.exit(1)
+    return docs[v]
     
 @cli.command()
 @click.argument('name', required=False)
-@click.option('--list_docs','-l',required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
 def edit(name,list_docs):
     """Edit a document."""
 
-    if not name:
-        uid = yew.store.get_user_pref('yewser','current_doc')
-        doc = yew.store.get_doc(uid)
-        print doc
-    else:
-        docs = yew.store.search_names(name)
+    if not name and not list_docs:
+        #uid = yew.store.get_user_pref('yewser','current_doc')
+        docs = yew.store.get_recent('yewser')
         for index,doc in enumerate(docs):
             click.echo("%s) %s" % (index,doc.name))
         v = click.prompt('Select document to edit', type=int)
@@ -441,10 +529,45 @@ def edit(name,list_docs):
             print "Choice not in range"
             sys.exit(1)
         doc = docs[v]
+    elif list_docs:
+        docs = yew.store.get_docs()
+        doc = document_menu(docs)
+    elif name:
+        docs = yew.store.search_names(name)
+        doc = document_menu(docs)
+
 
     click.edit(editor='emacs', require_save=True, filename=doc.path)
-
     yew.store.post_doc(yew.store.get_doc(doc.uid))
+    yew.store.put_user_pref('yewser', 'current_doc', doc.uid)
+    yew.store.update_recent('yewser', doc)
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+@click.option('--force','-f',is_flag=True, required=False)
+@click.option('--remote','-r',is_flag=True, required=False)
+def delete(name,list_docs,force,remote):
+    """Edit a document."""
+
+    if not name and not list_docs:
+        #uid = yew.store.get_user_pref('yewser','current_doc')
+        docs = yew.store.get_recent('yewser')
+        for index,doc in enumerate(docs):
+            click.echo("%s) %s" % (index,doc.name))
+        v = click.prompt('Select document to delete', type=int)
+        if not v in range(len(docs)):
+            print "Choice not in range"
+            sys.exit(1)
+        doc = docs[v]
+    elif list_docs:
+        docs = yew.store.get_docs()
+        doc = document_menu(docs)
+    elif name:
+        docs = yew.store.search_names(name)
+        doc = document_menu(docs)
+
+    yew.store.delete_document(doc, local_only = not remote)
 
 @cli.command()
 def status():
