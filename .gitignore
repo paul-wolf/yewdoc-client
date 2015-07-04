@@ -5,7 +5,7 @@ env
 ENV
 docs/_build
 docs/modules
-
+.emacs.desktop
 *.py[cod]
 
 # C extensions
