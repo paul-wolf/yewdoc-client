@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import uuid
@@ -10,6 +11,8 @@ from requests.auth import HTTPBasicAuth
 from strgen import StringGenerator as SG
 import json
 import shutil
+import hashlib
+import codecs
 
 requests.packages.urllib3.disable_warnings()
 
@@ -52,6 +55,7 @@ class Document(object):
         self.location = location
         self.kind = kind
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
+        self.digest = hashlib.sha256(self.get_content().encode('utf-8')).hexdigest()
         if not os.path.exists(self.path):
             raise Exception("Non-existant document: %s" % self.path)
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
@@ -64,8 +68,13 @@ class Document(object):
         data['title'] = self.name
         data['kind'] = self.kind
         data['content'] = open(self.path).read()
-
+        data['digest'] = self.digest
         return json.dumps(data)
+
+    def get_content(self):
+        """Get the content."""
+        f = codecs.open(self.path, "r", "utf-8")
+        return f.read()
 
     def __str__(self):
         return str(self.__unicode__())
@@ -117,7 +126,7 @@ class YewStore(object):
         c.execute('''CREATE TABLE IF NOT EXISTS global_prefs (key, value)''')
         c.execute('''CREATE TABLE IF NOT EXISTS user_prefs (username, key, value)''')
         c.execute('''CREATE TABLE IF NOT EXISTS user_project_prefs (username, project, key, value)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS document (uid,name,location,kind)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS document (uid,name,location,kind,digest)''')
         conn.commit()
         return conn
 
@@ -289,6 +298,16 @@ class YewStore(object):
         c.close()
         return doc
 
+    def rename_doc(self,doc,new_name):
+        """Rename document with name."""
+        c = self.conn.cursor()
+        sql = "UPDATE document SET name = ? WHERE uid = ?"
+        c.execute(sql,(new_name,doc.uid))
+        self.conn.commit()
+        c.close()
+        doc.name = new_name
+        return doc
+
     def search_names(self,name_frag):
         """Get a doc via reged on name."""
 
@@ -403,6 +422,23 @@ class YewCLI(object):
         # self.store.put_user_pref(self.username,'project',self.project)
         pass
 
+    def ping(self):
+        username = yew.store.get_global('username')
+        location_url = yew.store.get_user_pref(username,'yewdoc_url.default')
+        yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
+        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
+        url = "%s/api/ping/" % location_url
+        #click.echo(url)
+        return requests.get(url, headers=headers, verify=False)
+
+    def api(self):
+        username = yew.store.get_global('username')
+        location_url = yew.store.get_user_pref(username,'yewdoc_url.default')
+        yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
+        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
+        url = "%s/api/" % location_url
+        #click.echo(url)
+        return requests.get(url, headers=headers, verify=False)
 
     def status(self):
         """Print status."""
@@ -569,11 +605,103 @@ def delete(name,list_docs,force,remote):
 
     yew.store.delete_document(doc, local_only = not remote)
 
+def get_document_selection(name,list_docs):
+    """Present lists or whatever to get doc choice."""
+
+    if not name and not list_docs:
+        #uid = yew.store.get_user_pref('yewser','current_doc')
+        docs = yew.store.get_recent('yewser')
+        for index,doc in enumerate(docs):
+            click.echo("%s) %s" % (index,doc.name))
+        v = click.prompt('Select document to delete', type=int)
+        if not v in range(len(docs)):
+            print "Choice not in range"
+            sys.exit(1)
+        doc = docs[v]
+    elif list_docs:
+        docs = yew.store.get_docs()
+        doc = document_menu(docs)
+    elif name:
+        docs = yew.store.search_names(name)
+        doc = document_menu(docs)
+    return doc
+
 @cli.command()
-def status():
-    """Show status."""
-    yew.status()
-    
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def cat(name,list_docs):
+    """Send contents of document to stdout."""
+
+    if not name and not list_docs:
+        #uid = yew.store.get_user_pref('yewser','current_doc')
+        docs = yew.store.get_recent('yewser')
+        for index,doc in enumerate(docs):
+            click.echo("%s) %s" % (index,doc.name))
+        v = click.prompt('Select document to delete', type=int)
+        if not v in range(len(docs)):
+            print "Choice not in range"
+            sys.exit(1)
+        doc = docs[v]
+    elif list_docs:
+        docs = yew.store.get_docs()
+        doc = document_menu(docs)
+    elif name:
+        docs = yew.store.search_names(name)
+        doc = document_menu(docs)
+
+    click.echo(doc.get_content())
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def head(name,list_docs):
+    """Send contents of document to stdout."""
+
+    doc = get_document_selection(name,list_docs)
+
+    click.echo(doc.get_content()[:250])
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def tail(name,list_docs):
+    """Send contents of document to stdout."""
+
+    doc = get_document_selection(name,list_docs)
+
+    click.echo(doc.get_content()[-250:])
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def rename(name,list_docs):
+    """Send contents of document to stdout."""
+
+    doc = get_document_selection(name,list_docs)
+        
+    click.echo("Rename: '%s'" % doc.name)
+    v = click.prompt('Enter the new document title ', type=unicode)
+    if v:
+        doc = yew.store.rename_doc(doc,v)
+    yew.store.post_doc(doc)
+
+@cli.command()
+def ping():
+    """Ping server."""
+    r = yew.ping()
+    if r.status_code == 200:
+        click.echo("server time: %s" % r.content)
+        sys.exit(0)
+    click.echo("ERROR HTTP code: %s" % r.status_code)
+
+@cli.command()
+def api():
+    """Get API of the server."""
+    r = yew.api()
+    if r.status_code == 200:
+        print r.content
+        sys.exit(0)
+    click.echo("ERROR HTTP code: %s" % r.status_code)
 
 if __name__ == '__main__':
     yew = YewCLI()
