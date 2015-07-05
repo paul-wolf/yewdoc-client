@@ -56,9 +56,21 @@ class Document(object):
         self.kind = kind
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
         self.digest = hashlib.sha256(self.get_content().encode('utf-8')).hexdigest()
-        if not os.path.exists(self.path):
-            raise Exception("Non-existant document: %s" % self.path)
+        #if not os.path.exists(self.path):
+        #    raise Exception("Non-existant document: %s" % self.path)
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
+        self.store = store
+
+    def get_path(self):
+        return os.path.join(self.store.get_storage_directory(),self.location,self.uid,"doc."+self.kind)
+
+    def dump(self):
+        click.echo("uid      : %s" % self.uid)
+        click.echo("title    : %s" % self.name)
+        click.echo("location : %s" % self.location)
+        click.echo("kind     : %s" % self.kind)
+        click.echo("digest   : %s" % self.digest)
+        click.echo("path     : %s" % self.path)
 
     def serialize(self, no_uid=False):
         """Serialize as json to send to server."""
@@ -67,7 +79,7 @@ class Document(object):
         data['parent'] = None
         data['title'] = self.name
         data['kind'] = self.kind
-        data['content'] = open(self.path).read()
+        data['content'] = open(self.get_path()).read()
         data['digest'] = self.digest
         return json.dumps(data)
 
@@ -101,7 +113,15 @@ class YewStore(object):
         "yewdoc_token",
         "yewdoc_url",
         "yewdoc_url.default",
+        "default_doc_type",
         "current_doc",
+    ]
+
+    doc_kinds = [
+        "md",
+        "txt",
+        "rst",
+        "json",
     ]
 
     def __init__(self):
@@ -298,15 +318,30 @@ class YewStore(object):
         c.close()
         return doc
 
+    def change_doc_kind(self,doc,new_kind):
+        """Change type of document."""
+        path_src = doc.path
+        doc.kind = new_kind
+        path_dest = doc.get_path()
+        os.rename(path_src,path_dest)
+        self.reindex_doc(doc)
+        return doc
+
+        
     def rename_doc(self,doc,new_name):
         """Rename document with name."""
-        c = self.conn.cursor()
-        sql = "UPDATE document SET name = ? WHERE uid = ?"
-        c.execute(sql,(new_name,doc.uid))
-        self.conn.commit()
-        c.close()
+
         doc.name = new_name
+        self.reindex_doc(doc)
+
+        # c = self.conn.cursor()
+        # sql = "UPDATE document SET name = ? WHERE uid = ?"
+        # c.execute(sql,(new_name,doc.uid))
+        # self.conn.commit()
+        # c.close()
+
         return doc
+
 
     def search_names(self,name_frag):
         """Get a doc via reged on name."""
@@ -340,8 +375,12 @@ class YewStore(object):
         c.close()
         return docs
 
-    def index_doc(self, uid, name, location=None, kind="txt"):
-        """Enter document into db."""
+    def index_doc(self, uid, name, location, kind):
+        """Enter document into db for the first time.
+
+        TODO: check if exists.
+
+        """
         if not location:
             location = "default"
         # check if present
@@ -353,6 +392,18 @@ class YewStore(object):
             c.execute(sql,(uid,name,location,kind))
             self.conn.commit()
             c.close()
+
+    def reindex_doc(self, doc):
+        """Refresh index information."""
+        # check if present
+        #if not self.get_doc(doc.uid):
+        #    raise Exception("Can't reindex non-existant document.")
+        c = self.conn.cursor()
+        sql = "UPDATE document SET name=?, location=?, kind=?, digest=? WHERE uid = ?"
+        c.execute(sql,(doc.name, doc.location, doc.kind, doc.digest, doc.uid))
+        self.conn.commit()
+        c.close()
+        return doc
 
     def post_doc(self,doc):
         """Serialize and send document.
@@ -451,7 +502,7 @@ class YewCLI(object):
         with open(path, 'a'):
             os.utime(path, None)
     
-    def create_document(self,name,location=None,kind="txt"):
+    def create_document(self, name, location, kind):
         if not location:
             location = self.location
         uid = str(uuid.uuid1())   
@@ -461,7 +512,7 @@ class YewCLI(object):
         p = os.path.join(path,"doc."+kind.lower())
         self.touch(p)
         if os.path.exists(p):
-            self.store.index_doc(uid,name,location)
+            self.store.index_doc(uid,name,location,kind)
 
         # make this the current document
         yew.store.put_user_pref('yewser','current_doc',uid)
@@ -476,14 +527,23 @@ def cli(user):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--location', help="Location endpoint alias for document", required=False)
-@click.option('--kind', default='txt', help="Type of document, txt, md, rst, json, etc.", required=False)
-def doc(name,location,kind="txt"):
+@click.option('--kind', help="Type of document, txt, md, rst, json, etc.", required=False)
+def doc(name,location,kind):
     """Create a new document."""
     if not name:
         docs = yew.store.search_names("%s")
         for index,doc in enumerate(docs):
-            click.echo("%s: %s" % (doc.uid,doc.name))
+            click.echo("%s [%s]" % (doc.name,doc.kind))
+
         sys.exit(0)
+
+    # get the type of file
+    kind_tmp = yew.store.get_user_pref(yew.username,"default_doc_type")
+    if kind_tmp and not kind:
+        kind = kind_tmp
+
+    if not location:
+        location = 'deafult'
 
     doc = yew.create_document(name,location,kind)
 
@@ -543,11 +603,36 @@ def document_menu(docs):
     """Show list of docs. Return selection."""
     for index,doc in enumerate(docs):
         click.echo("%s) %s" % (index,doc.name))
-    v = click.prompt('Select document to edit', type=int)
+    v = click.prompt('Select document', type=int)
     if not v in range(len(docs)):
         print "Choice not in range"
         sys.exit(1)
     return docs[v]
+
+def get_document_selection(name,list_docs):
+    """Present lists or whatever to get doc choice."""
+
+    if not name and not list_docs:
+        #uid = yew.store.get_user_pref('yewser','current_doc')
+        docs = yew.store.get_recent('yewser')
+        for index,doc in enumerate(docs):
+            click.echo("%s) %s" % (index,doc.name))
+        v = click.prompt('Select document', type=int)
+        if not v in range(len(docs)):
+            print "Choice not in range"
+            sys.exit(1)
+        doc = docs[v]
+    elif list_docs:
+        docs = yew.store.get_docs()
+        if len(docs) == 1:
+            return docs[0]
+        doc = document_menu(docs)
+    elif name:
+        docs = yew.store.search_names(name)
+        if len(docs) == 1:
+            return docs[0]
+        doc = document_menu(docs)
+    return doc
     
 @cli.command()
 @click.argument('name', required=False)
@@ -555,24 +640,7 @@ def document_menu(docs):
 def edit(name,list_docs):
     """Edit a document."""
 
-    if not name and not list_docs:
-        #uid = yew.store.get_user_pref('yewser','current_doc')
-        docs = yew.store.get_recent('yewser')
-        for index,doc in enumerate(docs):
-            click.echo("%s) %s" % (index,doc.name))
-        v = click.prompt('Select document to edit', type=int)
-        if not v in range(len(docs)):
-            print "Choice not in range"
-            sys.exit(1)
-        doc = docs[v]
-    elif list_docs:
-        docs = yew.store.get_docs()
-        doc = document_menu(docs)
-    elif name:
-        docs = yew.store.search_names(name)
-        doc = document_menu(docs)
-
-
+    doc = get_document_selection(name,list_docs)
     click.edit(editor='emacs', require_save=True, filename=doc.path)
     yew.store.post_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('yewser', 'current_doc', doc.uid)
@@ -584,47 +652,13 @@ def edit(name,list_docs):
 @click.option('--force','-f',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
 def delete(name,list_docs,force,remote):
-    """Edit a document."""
+    """Delete a document."""
 
-    if not name and not list_docs:
-        #uid = yew.store.get_user_pref('yewser','current_doc')
-        docs = yew.store.get_recent('yewser')
-        for index,doc in enumerate(docs):
-            click.echo("%s) %s" % (index,doc.name))
-        v = click.prompt('Select document to delete', type=int)
-        if not v in range(len(docs)):
-            print "Choice not in range"
-            sys.exit(1)
-        doc = docs[v]
-    elif list_docs:
-        docs = yew.store.get_docs()
-        doc = document_menu(docs)
-    elif name:
-        docs = yew.store.search_names(name)
-        doc = document_menu(docs)
+    doc = get_document_selection(name,list_docs)
 
-    yew.store.delete_document(doc, local_only = not remote)
+    if force or click.confirm('Do you want to continue to delete the document?'):
+        yew.store.delete_document(doc, local_only = not remote)
 
-def get_document_selection(name,list_docs):
-    """Present lists or whatever to get doc choice."""
-
-    if not name and not list_docs:
-        #uid = yew.store.get_user_pref('yewser','current_doc')
-        docs = yew.store.get_recent('yewser')
-        for index,doc in enumerate(docs):
-            click.echo("%s) %s" % (index,doc.name))
-        v = click.prompt('Select document to delete', type=int)
-        if not v in range(len(docs)):
-            print "Choice not in range"
-            sys.exit(1)
-        doc = docs[v]
-    elif list_docs:
-        docs = yew.store.get_docs()
-        doc = document_menu(docs)
-    elif name:
-        docs = yew.store.search_names(name)
-        doc = document_menu(docs)
-    return doc
 
 @cli.command()
 @click.argument('name', required=False)
@@ -632,43 +666,34 @@ def get_document_selection(name,list_docs):
 def cat(name,list_docs):
     """Send contents of document to stdout."""
 
-    if not name and not list_docs:
-        #uid = yew.store.get_user_pref('yewser','current_doc')
-        docs = yew.store.get_recent('yewser')
-        for index,doc in enumerate(docs):
-            click.echo("%s) %s" % (index,doc.name))
-        v = click.prompt('Select document to delete', type=int)
-        if not v in range(len(docs)):
-            print "Choice not in range"
-            sys.exit(1)
-        doc = docs[v]
-    elif list_docs:
-        docs = yew.store.get_docs()
-        doc = document_menu(docs)
-    elif name:
-        docs = yew.store.search_names(name)
-        doc = document_menu(docs)
-
+    doc = get_document_selection(name,list_docs)
     click.echo(doc.get_content())
 
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
-def head(name,list_docs):
-    """Send contents of document to stdout."""
+def show(name,list_docs):
+    """Show document details."""
 
     doc = get_document_selection(name,list_docs)
+    doc.dump()
 
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def head(name,list_docs):
+    """Send start of document to stdout."""
+
+    doc = get_document_selection(name,list_docs)
     click.echo(doc.get_content()[:250])
 
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
 def tail(name,list_docs):
-    """Send contents of document to stdout."""
+    """Send end of document to stdout."""
 
     doc = get_document_selection(name,list_docs)
-
     click.echo(doc.get_content()[-250:])
 
 @cli.command()
@@ -678,11 +703,28 @@ def rename(name,list_docs):
     """Send contents of document to stdout."""
 
     doc = get_document_selection(name,list_docs)
-        
     click.echo("Rename: '%s'" % doc.name)
     v = click.prompt('Enter the new document title ', type=unicode)
     if v:
         doc = yew.store.rename_doc(doc,v)
+    yew.store.post_doc(doc)
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def kind(name,list_docs):
+    """Change kind of document."""
+
+    doc = get_document_selection(name,list_docs)
+    click.echo(doc)
+    click.echo("Current document kind: '%s'" % doc.kind)
+    for i,d in enumerate(yew.store.doc_kinds):
+        click.echo("%s) %s" % (i,d))
+    v = click.prompt('Select the new document kind ', type=int)
+    if v == 0 or v in range(len(yew.store.doc_kinds)):
+        kind = yew.store.doc_kinds[v]
+        print "Changing document kind to: ", kind
+        doc = yew.store.change_doc_kind(doc,kind)
     yew.store.post_doc(doc)
 
 @cli.command()
