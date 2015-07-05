@@ -7,12 +7,17 @@ from os.path import expanduser
 import click
 import sqlite3
 import requests
-from requests.auth import HTTPBasicAuth
 from strgen import StringGenerator as SG
 import json
 import shutil
 import hashlib
 import codecs
+import dateutil
+import dateutil.parser
+import datetime
+import pytz
+import tzlocal  
+
 
 requests.packages.urllib3.disable_warnings()
 
@@ -47,6 +52,27 @@ def delete_directory(folder):
     except Exception, e:
         print e
 
+def get_sha_digest(s):
+    """Generate digest for s.
+
+    Trim final whitespace.
+    Make sure it's utf-8.
+
+    """
+    s = s.rstrip()
+    s = s.encode('utf-8')
+    return hashlib.sha256(s).hexdigest()
+
+def to_utc(dt):
+    """Convert datetime object to utc."""
+    local_tz = tzlocal.get_localzone().localize(dt)
+    return local_tz.astimezone(pytz.utc)
+
+def modification_date(path):
+    """Get modification date of path as UTC time."""
+    t = os.path.getmtime(path)
+    return to_utc(datetime.datetime.fromtimestamp(t))
+
 class Document(object):
     """Describes a document."""
     def __init__(self,store,uid,name,location,kind):
@@ -55,14 +81,21 @@ class Document(object):
         self.location = location
         self.kind = kind
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
-        self.digest = hashlib.sha256(self.get_content().encode('utf-8')).hexdigest()
-        #if not os.path.exists(self.path):
-        #    raise Exception("Non-existant document: %s" % self.path)
+        self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
         self.store = store
 
+    def get_digest(self):
+        return get_sha_digest(self.get_content())
+
     def get_path(self):
         return os.path.join(self.store.get_storage_directory(),self.location,self.uid,"doc."+self.kind)
+
+    def validate(self):
+        if not os.path.exists(self.get_path()):
+            raise Exception("Non-existant document: %s" % self.path)
+        # should also check that we are in sync with index
+        return True
 
     def dump(self):
         click.echo("uid      : %s" % self.uid)
@@ -71,6 +104,10 @@ class Document(object):
         click.echo("kind     : %s" % self.kind)
         click.echo("digest   : %s" % self.digest)
         click.echo("path     : %s" % self.path)
+        click.echo("Last modified: %s" % modification_date(self.get_path()))
+
+    def get_last_updated_utc(self):
+        return modification_date(self.get_path())
 
     def serialize(self, no_uid=False):
         """Serialize as json to send to server."""
@@ -79,7 +116,7 @@ class Document(object):
         data['parent'] = None
         data['title'] = self.name
         data['kind'] = self.kind
-        data['content'] = open(self.get_path()).read()
+        data['content'] = self.get_content() # open(self.get_path()).read()
         data['digest'] = self.digest
         return json.dumps(data)
 
@@ -405,6 +442,13 @@ class YewStore(object):
         c.close()
         return doc
 
+    def get_headers(self):
+        """Get headers."""
+        username = self.get_global('username')
+        yewdoc_token = "Token %s" % self.get_user_pref(username,'yewdoc_token')
+        return {'Authorization': yewdoc_token, "Content-Type":"application/json"}
+
+
     def post_doc(self,doc):
         """Serialize and send document.
         
@@ -412,20 +456,36 @@ class YewStore(object):
         If it exists, it will be updated. 
 
         """
+
+        # check if it exists on the remote server
+        rexists = yew.remote_exists(doc.uid)
+        if rexists and rexists['digest'] == doc.get_digest():
+            click.echo("Nothing to update")
+            return 
+
+        # check if remote is newer
+        if rexists:
+            remote_dt = dateutil.parser.parse(rexists['date_updated'])
+            remote_newer = remote_dt > doc.get_last_updated_utc()
+            if remote_newer:
+                click.echo("Can't push to server because remote is newer.")
+                return 
+
         username = self.get_global('username')
         location_url = self.get_user_pref(username,'yewdoc_url.default')
-        yewdoc_token = "Token %s" % self.get_user_pref(username,'yewdoc_token')
         data = doc.serialize()
-        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
-        #url = "%s/api/documents/%s" % (location_url,doc.uid)
-        url = "%s/api/document/" % location_url
-        r = requests.post(url, data=data, headers=headers, verify=False)
-        if r.status_code == 400:
+        headers = self.get_headers()
+
+        if rexists:
             # it exists, so let's put together the  update url and PUT it
             url = "%s/api/document/%s/" % (location_url,doc.uid)
             data = doc.serialize(no_uid=True)
             r = requests.put(url, data=data, headers=headers, verify=False)
-        
+        else:
+            # create a new one
+            url = "%s/api/document/" % location_url
+            r = requests.post(url, data=data, headers=headers, verify=False)
+
 
 class YewCLI(object):
     url = "https://yew.io/yewdoc"
@@ -498,8 +558,25 @@ class YewCLI(object):
         print "project: ", self.project
         print "card: ", self.card
 
+    def get(self,endpoint,data={}):
+        username = yew.store.get_global('username')
+        location_url = yew.store.get_user_pref(username,'yewdoc_url.default')
+        yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
+        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
+        url = "%s/api/%s/" % (location_url,endpoint)
+        return requests.get(url, headers=headers, params=data, verify=False)
+
+    def remote_exists(self,uid):
+        """Check if a remote doc with uid exists. Return remote digest or None."""
+        r = yew.get("exists",{"uid":uid})
+        if r.status_code == 200:
+            data = json.loads(r.content)
+            if 'digest' in data:
+                return data
+        return None
+
     def touch(self,path):
-        with open(path, 'a'):
+        with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
     
     def create_document(self, name, location, kind):
@@ -528,7 +605,7 @@ def cli(user):
 @click.argument('name', required=False)
 @click.option('--location', help="Location endpoint alias for document", required=False)
 @click.option('--kind', help="Type of document, txt, md, rst, json, etc.", required=False)
-def doc(name,location,kind):
+def create(name,location,kind):
     """Create a new document."""
     if not name:
         docs = yew.store.search_names("%s")
@@ -637,11 +714,19 @@ def get_document_selection(name,list_docs):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
-def edit(name,list_docs):
+@click.option('--open_file','-o',is_flag=True, required=False, help="Open the file in your host operating system.")
+def edit(name,list_docs,open_file):
     """Edit a document."""
 
     doc = get_document_selection(name,list_docs)
-    click.edit(editor='emacs', require_save=True, filename=doc.path)
+
+    if open_file: 
+        # send to host os to ask it how to open file
+        click.launch(doc.get_path())
+    else:
+        click.edit(editor='emacs', require_save=True, filename=doc.path)
+
+
     yew.store.post_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('yewser', 'current_doc', doc.uid)
     yew.store.update_recent('yewser', doc)
@@ -663,20 +748,49 @@ def delete(name,list_docs,force,remote):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
-def cat(name,list_docs):
+@click.option('--remote','-r',is_flag=True, required=False)
+def cat(name,list_docs,remote):
     """Send contents of document to stdout."""
 
     doc = get_document_selection(name,list_docs)
-    click.echo(doc.get_content())
+    if remote:
+        r = yew.get("fetch",{"uid":doc.uid})
+        remote_doc = json.loads(r.content)
+        if remote_doc:
+            click.echo(remote_doc['content'])
+    else:
+        click.echo(doc.get_content())
 
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
-def show(name,list_docs):
+@click.option('--remote','-r',is_flag=True, required=False)
+def show(name,list_docs,remote):
     """Show document details."""
 
     doc = get_document_selection(name,list_docs)
     doc.dump()
+    if remote:
+        r = yew.get("exists",{"uid":doc.uid})
+        r_info = json.loads(r.content)
+        click.echo("Remote: ")
+        for k,v in r_info.items():
+            click.echo("%s: %s" % (k,v))
+        if not r_info['digest'] == doc.digest:
+            click.echo("Docs are different")
+            sdt = dateutil.parser.parse(r_info['date_updated'])
+            server_newer = sdt > doc.get_last_updated_utc()
+            click.echo("Server newer ? %s" % server_newer)
+
+@cli.command()
+def push():
+    """Push all documents to the server."""
+
+    docs = yew.store.get_docs()
+    for doc in docs:
+        click.echo("pushing: %s" % doc.name)
+        yew.store.post_doc(doc)
+    click.echo("Done!")
 
 @cli.command()
 @click.argument('name', required=False)
@@ -732,7 +846,10 @@ def ping():
     """Ping server."""
     r = yew.ping()
     if r.status_code == 200:
-        click.echo("server time: %s" % r.content)
+        print json.loads(r.content)
+        sdt = dateutil.parser.parse(json.loads(r.content))
+        click.echo("Server time: %s" % sdt)
+        print "Skew: ", datetime.datetime.now() - sdt
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
@@ -741,6 +858,7 @@ def api():
     """Get API of the server."""
     r = yew.api()
     if r.status_code == 200:
+        # content should be server time
         print r.content
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
