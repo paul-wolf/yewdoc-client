@@ -17,12 +17,12 @@ import dateutil.parser
 import datetime
 import pytz
 import tzlocal  
+import markdown
+import webbrowser
+import tempfile
 
-
+# suppress pesky warnings will testing locally
 requests.packages.urllib3.disable_warnings()
-
-yew = None
-
 
 class bcolors:
     HEADER = '\033[95m'
@@ -863,8 +863,26 @@ def api():
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def browse(name,list_docs):
+    """Convert to html and attempt to load in web browser."""
+
+    doc = get_document_selection(name,list_docs)
+    html = markdown.markdown(doc.get_content())
+    click.echo(html)
+    tmp_file = os.path.join(tempfile.gettempdir(),SG("[\w]{20}.html").render())
+    print tmp_file
+    f = open(tmp_file, 'w').write(html)
+    click.launch(tmp_file)
+
+
+##### our one global ####
+yew = YewCLI()
+
 if __name__ == '__main__':
-    yew = YewCLI()
     cli()
 
         
