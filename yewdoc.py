@@ -20,6 +20,7 @@ import tzlocal
 import markdown
 import webbrowser
 import tempfile
+import re
 
 # suppress pesky warnings will testing locally
 requests.packages.urllib3.disable_warnings()
@@ -125,6 +126,10 @@ class Document(object):
         f = codecs.open(self.path, "r", "utf-8")
         return f.read()
 
+    def put_content(self,content):
+        f = codecs.open(self.path, "w", "utf-8")
+        return f.write(content)
+        
     def __str__(self):
         return str(self.__unicode__())
 
@@ -486,6 +491,16 @@ class YewStore(object):
             url = "%s/api/document/" % location_url
             r = requests.post(url, data=data, headers=headers, verify=False)
 
+    def get(self,uid):
+        """Get a single document with the uid."""
+        if not is_uuid(uid):
+            raise Exception("Not a valid uid.")
+        doc = None
+        sql = "select uid,name,location,kind FROM document WHERE uid = ?"
+        c = self.conn.cursor()
+        c.execute(sql,(uid,))
+        row = c.fetchone()
+        return Document(self,row[0],row[1],row[2],row[3])
 
 class YewCLI(object):
     url = "https://yew.io/yewdoc"
@@ -539,6 +554,7 @@ class YewCLI(object):
         yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
         headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
         url = "%s/api/ping/" % location_url
+        #print headers
         #click.echo(url)
         return requests.get(url, headers=headers, verify=False)
 
@@ -678,6 +694,8 @@ def user_pref(name,value):
 
 def document_menu(docs):
     """Show list of docs. Return selection."""
+    if not len(docs):
+        return None
     for index,doc in enumerate(docs):
         click.echo("%s) %s" % (index,doc.name))
     v = click.prompt('Select document', type=int)
@@ -688,6 +706,9 @@ def document_menu(docs):
 
 def get_document_selection(name,list_docs):
     """Present lists or whatever to get doc choice."""
+
+    if is_uuid(name):
+        return yew.store.get(name)
 
     if not name and not list_docs:
         #uid = yew.store.get_user_pref('yewser','current_doc')
@@ -730,6 +751,26 @@ def edit(name,list_docs,open_file):
     yew.store.post_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('yewser', 'current_doc', doc.uid)
     yew.store.update_recent('yewser', doc)
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--info','-l',is_flag=True, required=False)
+def ls(name,info):
+    """List documents."""
+
+    if name:
+        docs = yew.store.search_names(name)
+    else:
+        docs = yew.store.get_docs()
+    for doc in docs:
+        if info:
+            click.echo("   ", nl=False)
+            click.echo(doc.uid, nl=False)
+            click.echo("   ", nl=False)
+            click.echo(doc.kind, nl=False)
+            click.echo("   ", nl=False)
+        click.echo(doc.name, nl=False)
+        click.echo('')
 
 @cli.command()
 @click.argument('name', required=False)
@@ -846,10 +887,9 @@ def ping():
     """Ping server."""
     r = yew.ping()
     if r.status_code == 200:
-        print json.loads(r.content)
         sdt = dateutil.parser.parse(json.loads(r.content))
-        click.echo("Server time: %s" % sdt)
-        print "Skew: ", datetime.datetime.now() - sdt
+        click.echo("Server time  : %s" % sdt)
+        click.echo("Skew         : %s" % str(datetime.datetime.now() - sdt))
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
@@ -878,6 +918,46 @@ def browse(name,list_docs):
     f = open(tmp_file, 'w').write(html)
     click.launch(tmp_file)
 
+@cli.command()
+@click.argument('path', required=True)
+@click.option('--kind','-k', required=False)
+def take(path,kind):
+    """Take the path to a file and make it a document.
+
+    The base filename becomes the document title.
+
+    Should be a text type, but we leave that to user.
+
+    """
+    if not os.path.exists(path) or not os.path.isfile(path):
+        click.echo("path does not exist: %s" % path)
+        sys.exit(1)
+
+    # slurp file
+    with click.open_file(path,'r') as f:
+        content = f.read()
+    print "XXXXX: ", unicode(content)
+
+
+    if not kind:
+        kind = yew.store.get_user_pref(yew.username,'default_doc_type')
+
+    title = os.path.splitext(path)[0]
+    doc = yew.create_document(title,'default',kind)
+
+    doc.put_content(unicode(content))
+
+    yew.store.post_doc(doc)
+
+
+
+
+#@cli.command()
+def read():
+    with click.open_file('-','r') as f:
+        i = f.read()
+    click.echo("GOT THIS: ")
+    click.echo(i)
 
 ##### our one global ####
 yew = YewCLI()
