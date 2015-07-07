@@ -89,8 +89,15 @@ class Document(object):
     def get_digest(self):
         return get_sha_digest(self.get_content())
 
+    def get_basename(self):
+        return 'doc'
+
+    def get_filename(self):
+        return "%s.%s" % (self.get_basename(),self.kind)
+
     def get_path(self):
-        return os.path.join(self.store.get_storage_directory(),self.location,self.uid,"doc."+self.kind)
+        return os.path.join(self.store.get_storage_directory(),self.location,self.uid,
+                            self.get_filename())
 
     def validate(self):
         if not os.path.exists(self.get_path()):
@@ -109,6 +116,11 @@ class Document(object):
 
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
+
+    def get_size(self):
+        return os.path.getsize(self.get_path())
+
+        return len(self.get_content())
 
     def serialize(self, no_uid=False):
         """Serialize as json to send to server."""
@@ -707,7 +719,7 @@ def document_menu(docs):
 def get_document_selection(name,list_docs):
     """Present lists or whatever to get doc choice."""
 
-    if is_uuid(name):
+    if name and is_uuid(name):
         return yew.store.get(name)
 
     if not name and not list_docs:
@@ -769,6 +781,8 @@ def ls(name,info):
             click.echo("   ", nl=False)
             click.echo(doc.kind, nl=False)
             click.echo("   ", nl=False)
+            click.echo(doc.get_size(), nl=False)
+            click.echo("   ", nl=False)
         click.echo(doc.name, nl=False)
         click.echo('')
 
@@ -781,7 +795,7 @@ def delete(name,list_docs,force,remote):
     """Delete a document."""
 
     doc = get_document_selection(name,list_docs)
-
+    click.echo("Document: %s  %s" % (doc.uid, doc.name))
     if force or click.confirm('Do you want to continue to delete the document?'):
         yew.store.delete_document(doc, local_only = not remote)
 
@@ -922,7 +936,7 @@ def browse(name,list_docs):
 @click.argument('path', required=True)
 @click.option('--kind','-k', required=False)
 def take(path,kind):
-    """Take the path to a file and make it a document.
+    """Create a document from a file.
 
     The base filename becomes the document title.
 
@@ -936,8 +950,6 @@ def take(path,kind):
     # slurp file
     with click.open_file(path,'r') as f:
         content = f.read()
-    print "XXXXX: ", unicode(content)
-
 
     if not kind:
         kind = yew.store.get_user_pref(yew.username,'default_doc_type')
