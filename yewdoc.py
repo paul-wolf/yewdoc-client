@@ -22,7 +22,7 @@ import webbrowser
 import tempfile
 import re
 
-# suppress pesky warnings will testing locally
+# suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
 
 class bcolors:
@@ -148,6 +148,126 @@ class Document(object):
     def __unicode__(self):
         return self.name
 
+class Remote(object):
+    """Handles comms with server."""
+
+    def __init__(self,store):
+        self.store = store
+        self.token = "Token %s" % self.store.get_user_pref(self.store.username,'yewdoc_token')
+        self.headers = {'Authorization': self.token, "Content-Type":"application/json"}
+        self.url = self.store.get_user_pref(self.store.username,'yewdoc_url.default')
+        self.verify = False
+        self.basic_auth_user = "yewser"
+        self.basic_auth_pass = "yewleaf"
+        self.basic_auth = False
+        self.offline = False
+
+    def get_headers(self):
+        """Get headers used for remote calls."""        
+        return self.headers
+
+    def get(self,endpoint,data={}):
+        """Perform get on remote."""
+        url = "%s/api/%s/" % (self.url,endpoint)
+        return requests.get(url, headers=self.headers, params=data, verify=self.verify)
+
+    def post(self,endpoint,data={}):
+        """Perform post on remote."""
+        url = "%s/api/%s/" % (self.url,endpoint)
+        return requests.post(url, headers=self.headers, params=data, verify=self.verify)
+
+    def register(self,data):
+        """Register a new user."""
+        return self.post("register_user",data)
+
+    def ping(self):
+        """Call remote ping() method."""
+        return self.get("ping")
+
+    def api(self):
+        return self.get("")
+
+    def doc_exists(self,uid):
+        """Check if a remote doc with uid exists.
+
+        Return remote digest or None.
+
+        """
+        r = self.get("exists",{"uid":uid})
+        if r.status_code == 200:
+            data = json.loads(r.content)
+            if 'digest' in data:
+                return data
+        return None
+
+    def fetch(self,uid):
+        """Get a document from remote.
+
+        But just return a dictionary. Don't make it local.
+
+        """
+        r = self.get("fetch",{"uid":uid})
+        remote_doc = json.loads(r.content)
+        return remote_doc
+
+    def push_doc(self,doc):
+        """Serialize and send document.
+        
+        This will create the document on the server unless it exists.
+        If it exists, it will be updated. 
+
+        """
+
+        # check if it exists on the remote server
+        rexists = self.doc_exists(doc.uid)
+        if rexists and rexists['digest'] == doc.get_digest():
+            click.echo("Nothing to update")
+            return 
+
+        # check if remote is newer
+        if rexists:
+            remote_dt = dateutil.parser.parse(rexists['date_updated'])
+            remote_newer = remote_dt > doc.get_last_updated_utc()
+            if remote_newer:
+                click.echo("Can't push to server because remote is newer.")
+                return 
+
+        data = doc.serialize()
+
+        if rexists:
+            # it exists, so let's put together the  update url and PUT it
+            url = "%s/api/document/%s/" % (self.url,doc.uid)
+            data = doc.serialize(no_uid=True)
+            r = requests.put(url, data=data, headers=self.headers, verify=self.verify)
+        else:
+            # create a new one
+            url = "%s/api/document/" % self.url
+            r = requests.post(url, data=data, headers=self.headers, verify=self.verify)
+
+    def register(self,username,password,email,first_name,last_name):
+        """Register a remote user.
+
+        Raise exceptions if user exists or missing or invalid data.
+
+        """
+        data ={
+            "username":username,
+            "password":password,
+            "email":email,
+            "first_name":first_name,
+            "last_name":last_name,
+        }
+
+    def get_token(self,remote_username,password):
+        """Get and store token for a registered user.
+        
+        username and password required
+
+        """
+        pass
+
+
+
 class YewStore(object):
     """Our data store.
 
@@ -185,6 +305,8 @@ class YewStore(object):
             os.makedirs(yew_dir)
         self.yewdb_path = os.path.join(yew_dir,'yew.db')
         self.conn = self.make_db(self.yewdb_path)
+        self.username = self.get_global('username')
+
 
     def get_storage_directory(self):
         """Return path for storage."""
@@ -388,12 +510,6 @@ class YewStore(object):
         doc.name = new_name
         self.reindex_doc(doc)
 
-        # c = self.conn.cursor()
-        # sql = "UPDATE document SET name = ? WHERE uid = ?"
-        # c.execute(sql,(new_name,doc.uid))
-        # self.conn.commit()
-        # c.close()
-
         return doc
 
 
@@ -414,7 +530,11 @@ class YewStore(object):
         return docs
 
     def get_docs(self):
-        """Get all docs."""
+        """Get all docs using the index. 
+
+        Does not get remote.
+
+        """
 
         username = self.get_global('username')
         location_url = self.get_user_pref(username,'yewdoc_url.default')
@@ -459,52 +579,8 @@ class YewStore(object):
         c.close()
         return doc
 
-    def get_headers(self):
-        """Get headers."""
-        username = self.get_global('username')
-        yewdoc_token = "Token %s" % self.get_user_pref(username,'yewdoc_token')
-        return {'Authorization': yewdoc_token, "Content-Type":"application/json"}
-
-
-    def post_doc(self,doc):
-        """Serialize and send document.
-        
-        This will create the document on the server unless it exists.
-        If it exists, it will be updated. 
-
-        """
-
-        # check if it exists on the remote server
-        rexists = yew.remote_exists(doc.uid)
-        if rexists and rexists['digest'] == doc.get_digest():
-            click.echo("Nothing to update")
-            return 
-
-        # check if remote is newer
-        if rexists:
-            remote_dt = dateutil.parser.parse(rexists['date_updated'])
-            remote_newer = remote_dt > doc.get_last_updated_utc()
-            if remote_newer:
-                click.echo("Can't push to server because remote is newer.")
-                return 
-
-        username = self.get_global('username')
-        location_url = self.get_user_pref(username,'yewdoc_url.default')
-        data = doc.serialize()
-        headers = self.get_headers()
-
-        if rexists:
-            # it exists, so let's put together the  update url and PUT it
-            url = "%s/api/document/%s/" % (location_url,doc.uid)
-            data = doc.serialize(no_uid=True)
-            r = requests.put(url, data=data, headers=headers, verify=False)
-        else:
-            # create a new one
-            url = "%s/api/document/" % location_url
-            r = requests.post(url, data=data, headers=headers, verify=False)
-
     def get(self,uid):
-        """Get a single document with the uid."""
+        """Get a single document with the uid from local store."""
         if not is_uuid(uid):
             raise Exception("Not a valid uid.")
         doc = None
@@ -514,95 +590,6 @@ class YewStore(object):
         row = c.fetchone()
         return Document(self,row[0],row[1],row[2],row[3])
 
-class YewCLI(object):
-    url = "https://yew.io/yewdoc"
-    basic_auth_user = "yewser"
-    basic_auth_pass = "yewleaf"
-    basic_auth = False
-    config_files = ('~/.yew')
-    username = "yewser"
-    password = "yewleaf"
-    session_key = None
-    api_name = "webapi"
-    config = None
-    verbose = False
-    store = None
-    location = 'default'
-    current_uid = None
-
-    def __init__(self):
-        """Initialize."""
-        self.store = YewStore()
-        self.read_config()
-
-    def read_config(self):
-        try:
-            # if not self.username:
-            #     self.username = self.store.get_global('username')
-            # if not self.username:
-            #     raise Exception("No username provided.")
-            # else:
-            #     self.store.put_global('username',self.username)
-            # self.password = self.store.get_user_pref(self.username,'password')
-            # self.session_key = self.store.get_user_pref(self.username,'session_key')
-            # self.url = self.store.get_user_pref(self.username,'url')
-            # self.project = self.store.get_user_pref(self.username,'project')
-            pass
-        except Exception as e:
-            raise e
-
-    def save_config(self):
-        """Save total configuration."""
-        # self.store.put_global('username',self.username)
-        # self.store.put_user_pref(self.username,'password',self.password)
-        # self.store.put_user_pref(self.username,'session_key',self.session_key)
-        # self.store.put_user_pref(self.username,'url',self.url)
-        # self.store.put_user_pref(self.username,'project',self.project)
-        pass
-
-    def ping(self):
-        username = yew.store.get_global('username')
-        location_url = yew.store.get_user_pref(username,'yewdoc_url.default')
-        yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
-        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
-        url = "%s/api/ping/" % location_url
-        #print headers
-        #click.echo(url)
-        return requests.get(url, headers=headers, verify=False)
-
-    def api(self):
-        username = yew.store.get_global('username')
-        location_url = yew.store.get_user_pref(username,'yewdoc_url.default')
-        yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
-        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
-        url = "%s/api/" % location_url
-        #click.echo(url)
-        return requests.get(url, headers=headers, verify=False)
-
-    def status(self):
-        """Print status."""
-        print "url: ", self.url
-        print "username: ", self.username
-        print "project: ", self.project
-        print "card: ", self.card
-
-    def get(self,endpoint,data={}):
-        username = yew.store.get_global('username')
-        location_url = yew.store.get_user_pref(username,'yewdoc_url.default')
-        yewdoc_token = "Token %s" % yew.store.get_user_pref(username,'yewdoc_token')
-        headers = {'Authorization': yewdoc_token, "Content-Type":"application/json"}
-        url = "%s/api/%s/" % (location_url,endpoint)
-        return requests.get(url, headers=headers, params=data, verify=False)
-
-    def remote_exists(self,uid):
-        """Check if a remote doc with uid exists. Return remote digest or None."""
-        r = yew.get("exists",{"uid":uid})
-        if r.status_code == 200:
-            data = json.loads(r.content)
-            if 'digest' in data:
-                return data
-        return None
-
     def touch(self,path):
         with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
@@ -611,18 +598,36 @@ class YewCLI(object):
         if not location:
             location = self.location
         uid = str(uuid.uuid1())   
-        path = os.path.join(self.store.get_storage_directory(),location,uid)
+        path = os.path.join(self.get_storage_directory(),location,uid)
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path,"doc."+kind.lower())
         self.touch(p)
         if os.path.exists(p):
-            self.store.index_doc(uid,name,location,kind)
+            self.index_doc(uid,name,location,kind)
 
         # make this the current document
-        yew.store.put_user_pref('yewser','current_doc',uid)
+        self.put_user_pref('yewser','current_doc',uid)
 
-        return self.store.get_doc(uid)
+        return self.get_doc(uid)
+
+class YewCLI(object):
+    """Non-store operations.
+
+    We manage the store and remote objects.
+
+    """
+
+    def __init__(self):
+        """Initialize."""
+
+        self.store = YewStore()
+        self.remote = Remote(self.store)
+
+    def status(self):
+        """Print status."""
+        click.echo("status")
+
 
 @click.group()
 @click.option('--user', help="User name", required=False)
@@ -650,11 +655,11 @@ def create(name,location,kind):
     if not location:
         location = 'deafult'
 
-    doc = yew.create_document(name,location,kind)
+    doc = yew.store.create_document(name,location,kind)
 
     click.echo("created document: %s" % doc.uid)
     click.edit(editor='emacs', require_save=True, filename=doc.path)
-    yew.store.post_doc(yew.store.get_doc(doc.uid))
+    yew.remote.push_doc(yew.store.get_doc(doc.uid))
 
 
 def get_user_email():
@@ -760,7 +765,7 @@ def edit(name,list_docs,open_file):
         click.edit(editor='emacs', require_save=True, filename=doc.path)
 
 
-    yew.store.post_doc(yew.store.get_doc(doc.uid))
+    yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('yewser', 'current_doc', doc.uid)
     yew.store.update_recent('yewser', doc)
 
@@ -809,8 +814,7 @@ def cat(name,list_docs,remote):
 
     doc = get_document_selection(name,list_docs)
     if remote:
-        r = yew.get("fetch",{"uid":doc.uid})
-        remote_doc = json.loads(r.content)
+        remote_doc = yew.remote.fetch(doc.uid)
         if remote_doc:
             click.echo(remote_doc['content'])
     else:
@@ -826,8 +830,7 @@ def show(name,list_docs,remote):
     doc = get_document_selection(name,list_docs)
     doc.dump()
     if remote:
-        r = yew.get("exists",{"uid":doc.uid})
-        r_info = json.loads(r.content)
+        r_info = yew.remote.doc_exists(doc.uid)
         click.echo("Remote: ")
         for k,v in r_info.items():
             click.echo("%s: %s" % (k,v))
@@ -840,11 +843,12 @@ def show(name,list_docs,remote):
 @cli.command()
 def push():
     """Push all documents to the server."""
-
+    if yew.remote.offline:
+        pass
     docs = yew.store.get_docs()
     for doc in docs:
         click.echo("pushing: %s" % doc.name)
-        yew.store.post_doc(doc)
+        yew.remote.push_doc(doc)
     click.echo("Done!")
 
 @cli.command()
@@ -876,7 +880,7 @@ def rename(name,list_docs):
     v = click.prompt('Enter the new document title ', type=unicode)
     if v:
         doc = yew.store.rename_doc(doc,v)
-    yew.store.post_doc(doc)
+    yew.remote.push_doc(doc)
 
 @cli.command()
 @click.argument('name', required=False)
@@ -894,12 +898,12 @@ def kind(name,list_docs):
         kind = yew.store.doc_kinds[v]
         print "Changing document kind to: ", kind
         doc = yew.store.change_doc_kind(doc,kind)
-    yew.store.post_doc(doc)
+    yew.remote.push_doc(doc)
 
 @cli.command()
 def ping():
     """Ping server."""
-    r = yew.ping()
+    r = yew.remote.ping()
     if r.status_code == 200:
         sdt = dateutil.parser.parse(json.loads(r.content))
         click.echo("Server time  : %s" % sdt)
@@ -910,13 +914,12 @@ def ping():
 @cli.command()
 def api():
     """Get API of the server."""
-    r = yew.api()
+    r = yew.remote.api()
     if r.status_code == 200:
         # content should be server time
         print r.content
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
-
 
 @cli.command()
 @click.argument('name', required=False)
@@ -955,13 +958,25 @@ def take(path,kind):
         kind = yew.store.get_user_pref(yew.username,'default_doc_type')
 
     title = os.path.splitext(path)[0]
-    doc = yew.create_document(title,'default',kind)
-
+    doc = yew.store.create_document(title,'default',kind)
     doc.put_content(unicode(content))
+    yew.remote.push_doc(doc)
 
-    yew.store.post_doc(doc)
-
-
+@cli.command()
+def register():
+    username = click.echo("enter username: ",type=str)
+    email = click.echo("enter email: ",type=str)
+    password = click.echo("enter password: ",type=str)
+    first_name = click.echo("enter first_name: ",type=str)
+    last_name = click.echo("enter last_name: ",type=str)
+    r = yew.remote.register({
+        "username":username,
+        "email":email,
+        "password":password,
+        "first_name":first_name,
+        "last_name":last_name,
+    })
+    
 
 
 #@cli.command()
