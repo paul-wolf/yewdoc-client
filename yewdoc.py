@@ -174,9 +174,9 @@ class Remote(object):
     def post(self,endpoint,data={}):
         """Perform post on remote."""
         url = "%s/api/%s/" % (self.url,endpoint)
-        return requests.post(url, headers=self.headers, params=data, verify=self.verify)
+        return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
-    def register(self,data):
+    def register_user(self,data):
         """Register a new user."""
         return self.post("register_user",data)
 
@@ -772,8 +772,16 @@ def edit(name,list_docs,open_file):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--info','-l',is_flag=True, required=False)
-def ls(name,info):
+@click.option('--remote','-r',is_flag=True, required=False)
+def ls(name,info,remote):
     """List documents."""
+
+    if remote:
+        r = yew.remote.get("document")
+        response = json.loads(r.content)
+        for doc in response['results']:
+            print doc['uid'], doc['title']
+        sys.exit(0)
 
     if name:
         docs = yew.store.search_names(name)
@@ -964,19 +972,24 @@ def take(path,kind):
 
 @cli.command()
 def register():
-    username = click.echo("enter username: ",type=str)
-    email = click.echo("enter email: ",type=str)
-    password = click.echo("enter password: ",type=str)
-    first_name = click.echo("enter first_name: ",type=str)
-    last_name = click.echo("enter last_name: ",type=str)
-    r = yew.remote.register({
+    username = click.prompt("enter username ",type=str)
+    email = click.prompt("enter email ",type=str)
+    password = click.prompt("enter password ",type=str)
+    first_name = click.prompt("enter first_name ",type=str)
+    last_name = click.prompt("enter last_name ",type=str)
+    r = yew.remote.register_user({
         "username":username,
         "email":email,
         "password":password,
         "first_name":first_name,
         "last_name":last_name,
     })
-    
+    click.echo("status code: %s" % r.status_code)
+    token = json.loads(r.content)
+    click.echo("response: %s" %token)
+    if r.status_code == 200:
+        pass
+
 
 
 #@cli.command()
