@@ -77,6 +77,7 @@ def modification_date(path):
 class Document(object):
     """Describes a document."""
     def __init__(self,store,uid,name,location,kind):
+        self.store = store
         self.uid = uid
         self.name = name
         self.location = location
@@ -84,7 +85,7 @@ class Document(object):
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
-        self.store = store
+
 
     def get_digest(self):
         return get_sha_digest(self.get_content())
@@ -176,6 +177,11 @@ class Remote(object):
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
+    def delete(self,endpoint):
+        """Perform delet on remote."""
+        url = "%s/api/%s/" % (self.url,endpoint)
+        return requests.delete(url, headers=self.headers, verify=self.verify)
+
     def register_user(self,data):
         """Register a new user."""
         return self.post("register_user",data)
@@ -206,9 +212,42 @@ class Remote(object):
         But just return a dictionary. Don't make it local.
 
         """
-        r = self.get("fetch",{"uid":uid})
+        #r = self.get("fetch",{"uid":uid})
+        r = self.get("document/%s"%uid)
         remote_doc = json.loads(r.content)
         return remote_doc
+
+    def get_docs(self):
+        """Get list of remote documents."""
+        r = yew.remote.get("document")
+        response = json.loads(r.content)
+        return response['results']
+
+    STATUS_REMOTE_SAME = 0 
+    STATUS_REMOTE_NEWER = 1
+    STATUS_REMOTE_OLDER = 2
+    STATUS_DOES_NOT_EXIST = 3
+
+    def doc_status(self,uid):
+        """Return status: exists-same, exists-newer, exists-older, does-not-exist."""
+        doc = self.store.get_doc(uid)
+        # check if it exists on the remote server
+        rexists = self.doc_exists(uid)
+        if not rexists:
+            return Remote.STATUS_DOES_NOT_EXIST
+
+        if rexists and rexists['digest'] == doc.get_digest():
+            return Remote.STATUS_REMOTE_SAME
+
+        remote_dt = dateutil.parser.parse(rexists['date_updated'])
+        remote_newer = remote_dt > doc.get_last_updated_utc()
+        if remote_newer:
+            return Remote.STATUS_REMOTE_NEWER
+        return Remote.STATUS_REMOTE_OLDER
+
+    def pull_doc(self,uid):
+        """Get document from server and store locally."""
+        
 
     def push_doc(self,doc):
         """Serialize and send document.
@@ -326,7 +365,7 @@ class YewStore(object):
         conn.commit()
         return conn
 
-    def delete_document(self,doc,local_only=True):
+    def delete_document(self,doc):
         """Delete a document and it's associated entities."""
 
         home = expanduser("~")
@@ -342,11 +381,6 @@ class YewStore(object):
         if not path.startswith(yew_dir): 
             raise Exception("Path for deletion is wrong: %s" % path)
         shutil.rmtree(path)
-
-        # tell server if removing remote
-        if not local_only:
-            # delete on server
-            pass
 
         self.conn.commit()
         self.conn.close()
@@ -588,6 +622,8 @@ class YewStore(object):
         c = self.conn.cursor()
         c.execute(sql,(uid,))
         row = c.fetchone()
+        if not row:
+            return None
         return Document(self,row[0],row[1],row[2],row[3])
 
     def touch(self,path):
@@ -610,6 +646,20 @@ class YewStore(object):
         self.put_user_pref('yewser','current_doc',uid)
 
         return self.get_doc(uid)
+
+    def import_document(self, uid, name, location, kind, content):
+        if not location:
+            location = self.location
+        path = os.path.join(self.get_storage_directory(),location,uid)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        p = os.path.join(path,"doc."+kind.lower())
+        self.touch(p)
+        if os.path.exists(p):
+            self.index_doc(uid,name,location,kind)
+        doc = self.get_doc(uid)
+        doc.put_content(content)
+        return doc
 
 class YewCLI(object):
     """Non-store operations.
@@ -801,6 +851,49 @@ def ls(name,info,remote):
 
 @cli.command()
 @click.argument('name', required=False)
+@click.option('--force','-f',is_flag=True, required=False)
+def sync(name,force):
+    """Pushes local docs and pulls docs from remote."""
+    # get local docs
+    docs_local = yew.store.get_docs()
+    docs_remote = yew.remote.get_docs()
+    remote_done = []
+
+    for doc in docs_local:
+        c = yew.remote.doc_status(doc.uid)
+        if c == Remote.STATUS_REMOTE_SAME:
+            remote_done.append(doc.uid)
+        elif c == Remote.STATUS_REMOTE_NEWER:
+            click.echo("get newer content from remote: %s %s" % (doc.uid,doc.name))
+            remote_doc = yew.remote.fetch(doc.uid)
+            # a dict
+            doc.put_content(remote_doc['content'])
+            remote_done.append(doc.uid)
+        elif c == Remote.STATUS_REMOTE_OLDER:
+            click.echo("push newer content to remote: %s %s" % (doc.uid,doc.name))
+            yew.remote.push_doc(doc)
+            remote_done.append(doc.uid)
+        elif c == Remote.STATUS_DOES_NOT_EXIST:
+            click.echo("push new doc to remote: %s %s" % (doc.uid,doc.name))
+            yew.remote.push_doc(doc)
+            remote_done.append(doc.uid)
+        else:
+            raise Exception("Invalid remote status: %s for %s" % (c,str(doc)))
+
+    remote_docs = yew.remote.get_docs()
+    for rdoc in remote_docs:
+        if rdoc['uid'] in remote_done:
+            continue
+        remote_doc = yew.remote.fetch(rdoc['uid'])
+        click.echo("importing doc: %s %s" % (remote_doc['uid'],remote_doc['title']))
+        yew.store.import_document(remote_doc['uid'],
+                                  remote_doc['title'],
+                                  'default',
+                                  remote_doc['kind'],
+                                  remote_doc['content'])
+
+@cli.command()
+@click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--force','-f',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
@@ -808,10 +901,13 @@ def delete(name,list_docs,force,remote):
     """Delete a document."""
 
     doc = get_document_selection(name,list_docs)
+    if not doc:
+        return
     click.echo("Document: %s  %s" % (doc.uid, doc.name))
-    if force or click.confirm('Do you want to continue to delete the document?'):
-        yew.store.delete_document(doc, local_only = not remote)
-
+    if click.confirm('Do you want to continue to delete the document?'):
+        yew.store.delete_document(doc)
+        if remote:
+            yew.remote.delete("document/%s"%doc.uid)
 
 @cli.command()
 @click.argument('name', required=False)
