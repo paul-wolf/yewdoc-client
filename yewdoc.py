@@ -149,19 +149,27 @@ class Document(object):
     def __unicode__(self):
         return self.name
 
+class RemoteException(Exception):
+    """Custom exception for remote errors."""
+    pass
+
 class Remote(object):
     """Handles comms with server."""
 
     def __init__(self,store):
         self.store = store
-        self.token = "Token %s" % self.store.get_user_pref(self.store.username,'location.default.token')
+        self.token = "Token %s" % self.store.get_user_pref('location.default.token')
         self.headers = {'Authorization': self.token, "Content-Type":"application/json"}
-        self.url = self.store.get_user_pref(self.store.username,'location.default.url')
+        self.url = self.store.get_user_pref('location.default.url')
         self.verify = False
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
         self.basic_auth = False
         self.offline = False
+
+    def check_data(self):
+        if not self.token or not self.url:
+            raise RemoteException("Token and url required to reach server. Check user prefs.")
 
     def get_headers(self):
         """Get headers used for remote calls."""        
@@ -169,6 +177,7 @@ class Remote(object):
 
     def get(self,endpoint,data={}):
         """Perform get on remote with endpoint."""
+        self.check_data()
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.get(url, headers=self.headers, params=data, verify=self.verify)
 
@@ -347,7 +356,7 @@ class YewStore(object):
             os.makedirs(yew_dir)
         self.yewdb_path = os.path.join(yew_dir,'yew.db')
         self.conn = self.make_db(self.yewdb_path)
-        self.username = self.get_global('username')
+        self.username = self.get_global('username','yewser')
 
 
     def get_storage_directory(self):
@@ -392,7 +401,7 @@ class YewStore(object):
         """Update most recent list.
         Return list of uids.
         """
-        list_unparsed = self.get_user_pref(username,"recent_list")
+        list_unparsed = self.get_user_pref("recent_list")
         if list_unparsed:
             list_parsed = json.loads(list_unparsed)
         else:
@@ -401,11 +410,11 @@ class YewStore(object):
             list_parsed.remove(doc.uid)  # take it out
         list_parsed.insert(0,doc.uid) # make it the first one
         # now save the new list
-        self.put_user_pref(username,'recent_list',json.dumps(list_parsed))
+        self.put_user_pref('recent_list',json.dumps(list_parsed))
 
     def get_recent(self,username):
         """Get most recent documents."""
-        list_unparsed = self.get_user_pref(username,"recent_list")
+        list_unparsed = self.get_user_pref("recent_list")
         docs = []
         if list_unparsed:
             list_parsed = json.loads(list_unparsed)
@@ -417,7 +426,7 @@ class YewStore(object):
         return []
         
 
-    def get_global(self,k):
+    def get_global(self,k,default=None):
         #print "get_global (key): ", k
         v = None
         c = self.conn.cursor()
@@ -427,6 +436,8 @@ class YewStore(object):
         if row:
             v = row[0]
         c.close()
+        if not v and default:
+            return default
         return v
 
     def get_globals(self):
@@ -461,8 +472,9 @@ class YewStore(object):
         self.conn.commit()
         c.close()
 
-    def get_user_pref(self,username,k):
+    def get_user_pref(self,k):
         #print "get_user_pref (%s,%s): " % (username,k)
+        username = self.username
         v = None
         c = self.conn.cursor()
         sql = "SELECT value FROM user_prefs WHERE username = ? AND key = ?"
@@ -473,13 +485,14 @@ class YewStore(object):
         c.close()
         return v
 
-    def put_user_pref(self,username,k,v):
+    def put_user_pref(self,k,v):
+        username = self.username
         #print "put_user_pref (%s,%s,%s): "% (username,k,v)
-        if not username or not k or not v:
-            print "not storing nulls"
+        if not k or not v:
+            echo.click("not storing nulls")
             return # don't store null values
         c = self.conn.cursor()
-        if self.get_user_pref(username,k):
+        if self.get_user_pref(k):
             sql = "UPDATE user_prefs SET value = ? WHERE username = ? AND key = ?"
             #print "UPDATE user_prefs SET value = %s WHERE username = %s AND key = %s" % (v,username,k)
             c.execute(sql,(v,username,k))
@@ -643,7 +656,7 @@ class YewStore(object):
             self.index_doc(uid,name,location,kind)
 
         # make this the current document
-        self.put_user_pref('yewser','current_doc',uid)
+        self.put_user_pref('current_doc',uid)
 
         return self.get_doc(uid)
 
@@ -698,7 +711,7 @@ def create(name,location,kind):
         sys.exit(0)
 
     # get the type of file
-    kind_tmp = yew.store.get_user_pref(yew.username,"default_doc_type")
+    kind_tmp = yew.store.get_user_pref("default_doc_type")
     if kind_tmp and not kind:
         kind = kind_tmp
 
@@ -714,7 +727,7 @@ def create(name,location,kind):
 
 def get_user_email():
     """Get user email from prefs or stdin."""
-    self.url = self.store.get_user_pref(self.username,'url')
+    self.url = self.store.get_user_pref('url')
 
 
 @cli.command()
@@ -751,13 +764,13 @@ def user_pref(name,value):
     username = yew.store.get_global('username')
     if not name:
         for k in YewStore.user_preferences:
-            v = yew.store.get_user_pref(username,k)
+            v = yew.store.get_user_pref(k)
             click.echo("%s = %s" % (k,v))
     elif value:
         # set the user preference
-        yew.store.put_user_pref(username,name,value)
+        yew.store.put_user_pref(name,value)
     else:
-        click.echo("%s = %s" % (name,yew.store.get_user_pref(username,name)))
+        click.echo("%s = %s" % (name,yew.store.get_user_pref(name)))
 
 def document_menu(docs):
     """Show list of docs. Return selection."""
@@ -778,7 +791,7 @@ def get_document_selection(name,list_docs):
         return yew.store.get(name)
 
     if not name and not list_docs:
-        #uid = yew.store.get_user_pref('yewser','current_doc')
+        #uid = yew.store.get_user_pref('current_doc')
         docs = yew.store.get_recent('yewser')
         for index,doc in enumerate(docs):
             click.echo("%s) %s" % (index,doc.name))
@@ -816,8 +829,8 @@ def edit(name,list_docs,open_file):
 
 
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref('yewser', 'current_doc', doc.uid)
-    yew.store.update_recent('yewser', doc)
+    yew.store.put_user_pref('current_doc', doc.uid)
+    yew.store.update_recent('yewser',doc)
 
 @cli.command()
 @click.argument('name', required=False)
@@ -1059,7 +1072,7 @@ def take(path,kind):
         content = f.read()
 
     if not kind:
-        kind = yew.store.get_user_pref(yew.username,'default_doc_type')
+        kind = yew.store.get_user_pref('default_doc_type')
 
     title = os.path.splitext(path)[0]
     doc = yew.store.create_document(title,'default',kind)
@@ -1070,12 +1083,12 @@ def _configure():
     for pref in yew.store.user_preferences:
         if 'token' in pref or 'password' in pref:
             continue
-        d = yew.store.get_user_pref(yew.store.username,pref)
+        d = yew.store.get_user_pref(pref)
         p = pref.split('.')
         i = p[2]
         value = click.prompt("Enter %s" % i,default=d,type=str)
         click.echo(pref + "==" +  value)
-        yew.store.put_user_pref(yew.store.username,pref,value)
+        yew.store.put_user_pref(pref,value)
 
 @cli.command()
 def register():
@@ -1084,10 +1097,10 @@ def register():
     # first make sure we are configured
     _configure()
 
-    username = yew.store.get_user_pref(yew.store.username,"location.default.username")
-    email = yew.store.get_user_pref(yew.store.username,"location.default.email")
-    first_name = yew.store.get_user_pref(yew.store.username,"location.default.first_name")
-    first_name = yew.store.get_user_pref(yew.store.username,"location.default.last_name")
+    username = yew.store.get_user_pref("location.default.username")
+    email = yew.store.get_user_pref("location.default.email")
+    first_name = yew.store.get_user_pref("location.default.first_name")
+    first_name = yew.store.get_user_pref("location.default.last_name")
     p = SG("[\w\d]{12}").render()
     password = click.prompt("Enter a new password or accept the default ", default=p, type=str)
     r = yew.remote.register_user({
@@ -1101,7 +1114,7 @@ def register():
     token = json.loads(r.content)
     click.echo("response: %s" %token)
     if r.status_code == 200:
-        yew.store.put_user_pref(yew.store.username,"location.default.token",token)
+        yew.store.put_user_pref("location.default.token",token)
 
 
 @cli.command()
