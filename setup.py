@@ -16,6 +16,8 @@ setup(
         'six==1.9.0',
         'tzlocal==1.2',
         'wsgiref==0.1.2',
+        'StringGenerator',
+        'markdown',
     ],
     entry_points='''
         [console_scripts]
