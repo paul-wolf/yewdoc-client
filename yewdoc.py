@@ -154,9 +154,9 @@ class Remote(object):
 
     def __init__(self,store):
         self.store = store
-        self.token = "Token %s" % self.store.get_user_pref(self.store.username,'yewdoc_token')
+        self.token = "Token %s" % self.store.get_user_pref(self.store.username,'location.default.url')
         self.headers = {'Authorization': self.token, "Content-Type":"application/json"}
-        self.url = self.store.get_user_pref(self.store.username,'yewdoc_url.default')
+        self.url = self.store.get_user_pref(self.store.username,'location.default.token')
         self.verify = False
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
@@ -322,12 +322,15 @@ class YewStore(object):
     ]
 
     user_preferences = [
-        "yewdoc_email",
-        "yewdoc_token",
-        "yewdoc_url",
-        "yewdoc_url.default",
-        "default_doc_type",
-        "current_doc",
+        "location.default.url",
+        "location.default.email",
+        "location.default.username",
+        "location.default.password",
+        "location.default.first_name",
+        "location.default.last_name",
+        "location.default.token",
+        #"default_doc_type",
+        #"current_doc",
     ]
 
     doc_kinds = [
@@ -551,7 +554,6 @@ class YewStore(object):
         """Get a doc via reged on name."""
 
         username = self.get_global('username')
-        location_url = self.get_user_pref(username,'yewdoc_url.default')
         doc = None
         sql = "select uid,name,location,kind FROM document WHERE name LIKE ?"
         c = self.conn.cursor()
@@ -569,9 +571,7 @@ class YewStore(object):
         Does not get remote.
 
         """
-
         username = self.get_global('username')
-        location_url = self.get_user_pref(username,'yewdoc_url.default')
         doc = None
         sql = "select uid,name,location,kind FROM document"
         c = self.conn.cursor()
@@ -1066,13 +1066,30 @@ def take(path,kind):
     doc.put_content(unicode(content))
     yew.remote.push_doc(doc)
 
+def _configure():
+    for pref in yew.store.user_preferences:
+        if 'token' in pref or 'password' in pref:
+            continue
+        d = yew.store.get_user_pref(yew.store.username,pref)
+        p = pref.split('.')
+        i = p[2]
+        value = click.prompt("Enter %s" % i,default=d,type=str)
+        click.echo(pref + "==" +  value)
+        yew.store.put_user_pref(yew.store.username,pref,value)
+
 @cli.command()
 def register():
-    username = click.prompt("enter username ",type=str)
-    email = click.prompt("enter email ",type=str)
-    password = click.prompt("enter password ",type=str)
-    first_name = click.prompt("enter first_name ",type=str)
-    last_name = click.prompt("enter last_name ",type=str)
+    """Try to get a user account on remote."""
+
+    # first make sure we are configured
+    _configure()
+
+    username = yew.store.get_user_pref(yew.store.username,"location.default.username")
+    email = yew.store.get_user_pref(yew.store.username,"location.default.email")
+    first_name = yew.store.get_user_pref(yew.store.username,"location.default.first_name")
+    first_name = yew.store.get_user_pref(yew.store.username,"location.default.last_name")
+    p = SG("[\w\d]{12}").render()
+    password = click.prompt("Enter a new password or accept the default ", default=p, type=str)
     r = yew.remote.register_user({
         "username":username,
         "email":email,
@@ -1084,9 +1101,13 @@ def register():
     token = json.loads(r.content)
     click.echo("response: %s" %token)
     if r.status_code == 200:
-        pass
+        yew.store.put_user_pref(yew.store.username,"location.default.token",token)
 
 
+@cli.command()
+def configure():
+    """Get configuration information from user."""
+    _configure()
 
 #@cli.command()
 def read():
