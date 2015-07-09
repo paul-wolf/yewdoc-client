@@ -188,6 +188,7 @@ class Remote(object):
 
     def delete(self,endpoint):
         """Perform delet on remote."""
+        self.check_data()
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.delete(url, headers=self.headers, verify=self.verify)
 
