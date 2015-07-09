@@ -154,9 +154,9 @@ class Remote(object):
 
     def __init__(self,store):
         self.store = store
-        self.token = "Token %s" % self.store.get_user_pref(self.store.username,'location.default.url')
+        self.token = "Token %s" % self.store.get_user_pref(self.store.username,'location.default.token')
         self.headers = {'Authorization': self.token, "Content-Type":"application/json"}
-        self.url = self.store.get_user_pref(self.store.username,'location.default.token')
+        self.url = self.store.get_user_pref(self.store.username,'location.default.url')
         self.verify = False
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
@@ -168,7 +168,7 @@ class Remote(object):
         return self.headers
 
     def get(self,endpoint,data={}):
-        """Perform get on remote."""
+        """Perform get on remote with endpoint."""
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.get(url, headers=self.headers, params=data, verify=self.verify)
 
