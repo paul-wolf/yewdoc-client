@@ -404,7 +404,7 @@ class YewStore(object):
         shutil.rmtree(path)
 
         self.conn.commit()
-        self.conn.close()
+
 
     def update_recent(self,username,doc):
         """Update most recent list.
@@ -781,20 +781,59 @@ def user_pref(name,value):
     else:
         click.echo("%s = %s" % (name,yew.store.get_user_pref(name)))
 
-def document_menu(docs):
+def parse_ranges(s):
+    """Parse s as a list of range specs."""
+    l = [] # return value is a list of doc indexes
+    ranges = s.split(',')
+    # list of ranges
+    for r in ranges:
+        try:
+            i = int(r)
+            l.append(i)
+        except ValueError:
+            # check if range
+            if '-' in r:
+                start,end = r.split('-')
+                start = int(start)
+                end = int(end)
+                l.extend([x for x in range(start,end+1)])
+    return l
+
+def document_menu(docs, multiple=False):
     """Show list of docs. Return selection."""
     if not len(docs):
         return None
     for index,doc in enumerate(docs):
         click.echo("%s) %s" % (index,doc.name))
-    v = click.prompt('Select document', type=int)
-    if not v in range(len(docs)):
-        print "Choice not in range"
-        sys.exit(1)
+    if multiple:
+        v = click.prompt('Select document')
+        index_list = parse_ranges(v)
+        l = []
+        for i in index_list:
+            if i in range(len(docs)):
+                l.append(docs[i])
+        return l # returning a list of docs!!
+    else:
+        v = click.prompt('Select document', type=int)
+        if not v in range(len(docs)):
+            print "Choice not in range"
+            sys.exit(1)
     return docs[v]
 
-def get_document_selection(name,list_docs):
-    """Present lists or whatever to get doc choice."""
+def get_document_selection(name,list_docs,multiple=False):
+    """Present lists or whatever to get doc choice.
+
+    name (str): a title or partial title to use as search 
+    list_docs (bool): a flag to list documents are not. 
+    ranges (bool): allow range of integers for a list selection?
+
+    If there is no name, show recent list.
+    otherwise, show all docs
+ 
+    We let user specify if a list of docs should be returned.
+    In that case, the return value's type is a list.
+
+    """
 
     if name and is_uuid(name):
         return yew.store.get(name)
@@ -802,23 +841,17 @@ def get_document_selection(name,list_docs):
     if not name and not list_docs:
         #uid = yew.store.get_user_pref('current_doc')
         docs = yew.store.get_recent('yewser')
-        for index,doc in enumerate(docs):
-            click.echo("%s) %s" % (index,doc.name))
-        v = click.prompt('Select document', type=int)
-        if not v in range(len(docs)):
-            print "Choice not in range"
-            sys.exit(1)
-        doc = docs[v]
+        return document_menu(docs,multiple)
     elif list_docs:
         docs = yew.store.get_docs()
         if len(docs) == 1:
             return docs[0]
-        doc = document_menu(docs)
+        return document_menu(docs,multiple)
     elif name:
         docs = yew.store.search_names(name)
         if len(docs) == 1:
             return docs[0]
-        doc = document_menu(docs)
+        return document_menu(docs,multiple)
     return doc
     
 @cli.command()
@@ -922,14 +955,20 @@ def sync(name,force):
 def delete(name,list_docs,force,remote):
     """Delete a document."""
 
-    doc = get_document_selection(name,list_docs)
-    if not doc:
+    docs = get_document_selection(name,list_docs,multiple=True)
+    if not docs:
         return
-    click.echo("Document: %s  %s" % (doc.uid, doc.name))
-    if click.confirm('Do you want to continue to delete the document?'):
-        yew.store.delete_document(doc)
-        if remote:
-            yew.remote.delete("document/%s"%doc.uid)
+    for doc in docs:
+        click.echo("Document: %s  %s" % (doc.uid, doc.name))
+    if force:
+        d = True
+    else:
+        d =  click.confirm('Do you want to continue to delete the document(s)?')
+    if d:
+        for doc in docs:
+            yew.store.delete_document(doc)
+            if remote:
+                yew.remote.delete("document/%s"%doc.uid)
 
 @cli.command()
 @click.argument('name', required=False)
