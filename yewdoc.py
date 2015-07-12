@@ -233,16 +233,32 @@ class Remote(object):
         response = json.loads(r.content)
         return response['results']
 
+    STATUS_NO_CONNECTION = -1 
     STATUS_REMOTE_SAME = 0 
     STATUS_REMOTE_NEWER = 1
     STATUS_REMOTE_OLDER = 2
     STATUS_DOES_NOT_EXIST = 3
 
+    STATUS_MSG = {
+        STATUS_NO_CONNECTION:"can't connect",
+        STATUS_REMOTE_SAME:"documents are the same",
+        STATUS_REMOTE_NEWER:"remote is newer",
+        STATUS_REMOTE_OLDER:"remote is older",
+        STATUS_DOES_NOT_EXIST:"remote does not exist",
+    }
+
     def doc_status(self,uid):
         """Return status: exists-same, exists-newer, exists-older, does-not-exist."""
+
         doc = self.store.get_doc(uid)
+
         # check if it exists on the remote server
-        rexists = self.doc_exists(uid)
+        try:
+            rexists = self.doc_exists(uid)
+        except Exception as e:
+            click.echo(e)
+            return -1
+
         if not rexists:
             return Remote.STATUS_DOES_NOT_EXIST
 
@@ -257,7 +273,7 @@ class Remote(object):
 
     def pull_doc(self,uid):
         """Get document from server and store locally."""
-        
+        pass
 
     def push_doc(self,doc):
         """Serialize and send document.
@@ -266,32 +282,24 @@ class Remote(object):
         If it exists, it will be updated. 
 
         """
+        status = self.doc_status(doc.uid)
 
-        # check if it exists on the remote server
-        rexists = self.doc_exists(doc.uid)
-        if rexists and rexists['digest'] == doc.get_digest():
-            click.echo("Nothing to update")
-            return 
-
-        # check if remote is newer
-        if rexists:
-            remote_dt = dateutil.parser.parse(rexists['date_updated'])
-            remote_newer = remote_dt > doc.get_last_updated_utc()
-            if remote_newer:
-                click.echo("Can't push to server because remote is newer.")
-                return 
-
+        if status == Remote.STATUS_REMOTE_SAME \
+           or status == Remote.STATUS_REMOTE_NEWER:
+            return status
+        
         data = doc.serialize()
 
-        if rexists:
+        if status == Remote.STATUS_REMOTE_OLDER:
             # it exists, so let's put together the  update url and PUT it
             url = "%s/api/document/%s/" % (self.url,doc.uid)
             data = doc.serialize(no_uid=True)
             r = requests.put(url, data=data, headers=self.headers, verify=self.verify)
-        else:
+        elif status == Remote.STATUS_DOES_NOT_EXIST:
             # create a new one
             url = "%s/api/document/" % self.url
             r = requests.post(url, data=data, headers=self.headers, verify=self.verify)
+        return status
 
     def register(self,username,password,email,first_name,last_name):
         """Register a remote user.
@@ -938,25 +946,41 @@ def cat(name,list_docs,remote):
     else:
         click.echo(doc.get_content())
 
+
+import difflib
+#from difflib_data import *
+
+def diff_content(doc1,doc2):
+    #d = difflib.Differ()
+    #diff = d.compare(doc1,doc2)
+    diff = difflib.ndiff(doc1,doc2)
+    print '\n'.join(list(diff))
+
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
-def show(name,list_docs,remote):
+@click.option('--diff','-d',is_flag=True, required=False)
+def show(name,list_docs,remote,diff):
     """Show document details."""
 
     doc = get_document_selection(name,list_docs)
     doc.dump()
+    status = None
     if remote:
         r_info = yew.remote.doc_exists(doc.uid)
         click.echo("Remote: ")
         for k,v in r_info.items():
             click.echo("%s: %s" % (k,v))
-        if not r_info['digest'] == doc.digest:
-            click.echo("Docs are different")
-            sdt = dateutil.parser.parse(r_info['date_updated'])
-            server_newer = sdt > doc.get_last_updated_utc()
-            click.echo("Server newer ? %s" % server_newer)
+        status = yew.remote.doc_status(doc.uid)
+        click.echo(Remote.STATUS_MSG[status])
+    if diff and not status == Remote.STATUS_REMOTE_SAME \
+       and not Remote.STATUS_NO_CONNECTION:
+        remote_doc = yew.remote.fetch(doc.uid)
+        print diff_content(
+            remote_doc['content'].rstrip().splitlines(),
+            doc.get_content().rstrip().splitlines()
+        )
 
 @cli.command()
 def push():
@@ -964,9 +988,19 @@ def push():
     if yew.remote.offline:
         pass
     docs = yew.store.get_docs()
+    result = ""
     for doc in docs:
-        click.echo("pushing: %s" % doc.name)
-        yew.remote.push_doc(doc)
+        click.echo("pushing: %s:" % doc.name, nl=False)
+        status = yew.remote.push_doc(doc)
+        if status == Remote.STATUS_REMOTE_SAME:
+            result = " No difference" 
+        elif status == Remote.STATUS_REMOTE_NEWER:
+            result = " can't push because remote newer"
+        elif status == Remote.STATUS_REMOTE_OLDER:
+            result = " local newer, pushed"
+        elif status == Remote.STATUS_DOES_NOT_EXIST:
+            result = " no remote version, creating"
+        click.echo(result)
     click.echo("Done!")
 
 @cli.command()
