@@ -839,7 +839,6 @@ def get_document_selection(name,list_docs,multiple=False):
         return yew.store.get(name)
 
     if not name and not list_docs:
-        #uid = yew.store.get_user_pref('current_doc')
         docs = yew.store.get_recent('yewser')
         return document_menu(docs,multiple)
     elif list_docs:
@@ -957,18 +956,21 @@ def delete(name,list_docs,force,remote):
 
     docs = get_document_selection(name,list_docs,multiple=True)
     if not docs:
+        click.echo("no matching documents")
         return
+    if not type(docs) == list:
+        docs = [docs]
     for doc in docs:
         click.echo("Document: %s  %s" % (doc.uid, doc.name))
-    if force:
-        d = True
-    else:
+    d = True
+    if not force:
         d =  click.confirm('Do you want to continue to delete the document(s)?')
     if d:
         for doc in docs:
             yew.store.delete_document(doc)
             if remote:
                 yew.remote.delete("document/%s"%doc.uid)
+                click.echo("removed %s" % doc.name)
 
 @cli.command()
 @click.argument('name', required=False)
