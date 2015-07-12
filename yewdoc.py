@@ -21,6 +21,8 @@ import markdown
 import webbrowser
 import tempfile
 import re
+import string
+import pypandoc
 
 # suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
@@ -1124,9 +1126,48 @@ def browse(name,list_docs):
     html = markdown.markdown(doc.get_content())
     click.echo(html)
     tmp_file = os.path.join(tempfile.gettempdir(),SG("[\w]{20}.html").render())
-    print tmp_file
-    f = open(tmp_file, 'w').write(html)
+
+    with click.open_file('template_0.html','r') as f:
+        t = f.read()
+    template = string.Template(t)
+    dest = template.substitute(title=doc.name,
+                               content=html)
+
+    f = codecs.open(tmp_file, 'w','utf-8').write(dest)
     click.launch(tmp_file)
+
+
+
+@cli.command()
+@click.argument('name', required=False)
+@click.argument('destination_format', required=True)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+@click.option('--formats','-f',is_flag=True,required=False)
+def convert(name,destination_format, list_docs, formats):
+    """Convert to html and attempt to load in web browser."""
+
+
+    if formats:
+        formats = pypandoc.get_pandoc_formats()
+        click.echo("Input formats:")
+        for f in formats[0]:
+            click.echo("\t" + f)
+        click.echo("Output formats:")
+        for f in formats[1]:
+            click.echo("\t"+f)
+        sys.exit(0)
+
+    doc = get_document_selection(name,list_docs)
+    print doc.name
+    print doc.kind
+    print destination_format
+
+    dest = pypandoc.convert(doc.get_content(),
+                            doc.kind,
+                            destination_format)
+    click.echo(dest)
+
+
 
 @cli.command()
 @click.argument('path', required=True)
