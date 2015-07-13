@@ -101,6 +101,13 @@ class Document(object):
     def get_path(self):
         return os.path.join(self.store.get_storage_directory(),self.location,self.uid,
                             self.get_filename())
+    def get_media_path(self):
+        path = os.path.join(self.store.get_storage_directory(),self.location,self.uid,
+                            'media')
+        if not os.path.exists(path):
+            os.makedirs(path)
+            #os.chmod(path, 0x776)
+        return path
 
     def validate(self):
         if not os.path.exists(self.get_path()):
@@ -711,7 +718,7 @@ def cli(user):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--location', help="Location endpoint alias for document", required=False)
-@click.option('--kind', help="Type of document, txt, md, rst, json, etc.", required=False)
+@click.option('--kind', default='md', help="Type of document, txt, md, rst, json, etc.", required=False)
 def create(name,location,kind):
     """Create a new document."""
     if not name:
@@ -1195,6 +1202,33 @@ def take(path,kind):
     doc = yew.store.create_document(title,'default',kind)
     doc.put_content(unicode(content))
     yew.remote.push_doc(doc)
+
+@cli.command()
+@click.argument('name', required=False)
+@click.argument('path', required=True)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+def attach(name, path, list_docs):
+    """Take a file and put into media folder.
+
+    The filename will be stripped of spaces.
+
+    """
+
+    if not os.path.exists(path) or not os.path.isfile(path):
+        click.echo("file does not exist: %s" % path)
+        sys.exit(1)
+
+    doc = get_document_selection(name,list_docs)
+        
+    _, filename = os.path.split(path)
+    dest_path = os.path.join(doc.get_media_path(),filename)
+    
+    # copy file
+    with click.open_file(path,'r') as f_in:
+        with click.open_file(dest_path, 'w') as f_out:
+            f_out.write(f_in.read())
+
+
 
 def _configure():
     for pref in yew.store.user_preferences:
