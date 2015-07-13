@@ -727,7 +727,7 @@ def create(name,location,kind):
         kind = kind_tmp
 
     if not location:
-        location = 'deafult'
+        location = 'default'
 
     doc = yew.store.create_document(name,location,kind)
 
