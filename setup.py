@@ -18,7 +18,8 @@ setup(
         'wsgiref==0.1.2',
         'StringGenerator',
         'markdown',
-    ],
+        'pypandoc',
+   ],
     entry_points='''
         [console_scripts]
         yd = yewdoc:cli
