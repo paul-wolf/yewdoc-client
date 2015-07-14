@@ -1094,12 +1094,11 @@ def kind(name,list_docs):
     click.echo(doc)
     click.echo("Current document kind: '%s'" % doc.kind)
     for i,d in enumerate(yew.store.doc_kinds):
-        click.echo("%s) %s" % (i,d))
-    v = click.prompt('Select the new document kind ', type=int)
-    if v == 0 or v in range(len(yew.store.doc_kinds)):
-        kind = yew.store.doc_kinds[v]
-        print "Changing document kind to: ", kind
-        doc = yew.store.change_doc_kind(doc,kind)
+        click.echo("%s" % (d))
+    kind = click.prompt('Select the new document kind ', type=str)
+    #kind = yew.store.doc_kinds[v]
+    print "Changing document kind to: ", kind
+    doc = yew.store.change_doc_kind(doc,kind)
     yew.remote.push_doc(doc)
 
 @cli.command()
