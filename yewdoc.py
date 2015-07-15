@@ -916,7 +916,12 @@ def ls(name,info,remote):
 @click.argument('name', required=False)
 @click.option('--force','-f',is_flag=True, required=False)
 def sync(name,force):
-    """Pushes local docs and pulls docs from remote."""
+    """Pushes local docs and pulls docs from remote.
+
+    We don't overwrite newer docs.
+    Does nothing if docs are the same.
+
+    """
     # get local docs
     docs_local = yew.store.get_docs()
     docs_remote = yew.remote.get_docs()
@@ -1150,8 +1155,7 @@ def browse(name,list_docs):
 @click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--formats','-f',is_flag=True,required=False)
 def convert(name,destination_format, list_docs, formats):
-    """Convert to html and attempt to load in web browser."""
-
+    """Convert to destination_format and print to stdout."""
 
     if formats:
         formats = pypandoc.get_pandoc_formats()
@@ -1230,6 +1234,13 @@ def attach(name, path, list_docs):
 
 
 def _configure():
+    """Prompt user for settings necessary for remote operations.
+
+    Store in user prefs.
+    Skip secret things like tokens and passwords.
+
+    """
+
     for pref in yew.store.user_preferences:
         if 'token' in pref or 'password' in pref:
             continue
@@ -1274,6 +1285,8 @@ def configure():
 
 #@cli.command()
 def read():
+    """Get strings from stdin."""
+
     with click.open_file('-','r') as f:
         i = f.read()
     click.echo("GOT THIS: ")
