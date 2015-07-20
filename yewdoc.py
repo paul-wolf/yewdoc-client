@@ -7,6 +7,7 @@ from os.path import expanduser
 import click
 import sqlite3
 import requests
+from requests.exceptions import ConnectionError
 from strgen import StringGenerator as SG
 import json
 import shutil
@@ -23,6 +24,8 @@ import tempfile
 import re
 import string
 import pypandoc
+import difflib
+#from difflib_data import *
 
 # suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
@@ -120,6 +123,7 @@ class Document(object):
         click.echo("title    : %s" % self.name)
         click.echo("location : %s" % self.location)
         click.echo("kind     : %s" % self.kind)
+        click.echo("size     : %s" % self.get_size())
         click.echo("digest   : %s" % self.digest)
         click.echo("path     : %s" % self.path)
         click.echo("Last modified: %s" % modification_date(self.get_path()))
@@ -146,10 +150,12 @@ class Document(object):
     def get_content(self):
         """Get the content."""
         f = codecs.open(self.path, "r", "utf-8")
-        return f.read()
+        s = f.read()
+        f.close()
+        return s
 
-    def put_content(self,content):
-        f = codecs.open(self.path, "w", "utf-8")
+    def put_content(self,content, mode='w'):
+        f = codecs.open(self.path, mode, "utf-8")
         return f.write(content)
         
     def __str__(self):
@@ -189,28 +195,45 @@ class Remote(object):
         self.check_data()
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.get(url, headers=self.headers, params=data, verify=self.verify)
-
+            
     def post(self,endpoint,data={}):
         """Perform post on remote."""
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
     def delete(self,endpoint):
-        """Perform delet on remote."""
+        """Perform delete on remote."""
         self.check_data()
         url = "%s/api/%s/" % (self.url,endpoint)
-        return requests.delete(url, headers=self.headers, verify=self.verify)
+        try:
+            return requests.delete(url, headers=self.headers, verify=self.verify)
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
 
     def register_user(self,data):
         """Register a new user."""
-        return self.post("register_user",data)
+        try:
+            return self.post("register_user",data)
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
 
     def ping(self):
         """Call remote ping() method."""
-        return self.get("ping")
+        try:
+            return self.get("ping")
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
 
     def api(self):
-        return self.get("")
+        """Return the api from remote."""
+        try:
+            return self.get("")
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
 
     def doc_exists(self,uid):
         """Check if a remote doc with uid exists.
@@ -219,7 +242,7 @@ class Remote(object):
 
         """
         r = self.get("exists",{"uid":uid})
-        if r.status_code == 200:
+        if r and r.status_code == 200:
             data = json.loads(r.content)
             if 'digest' in data:
                 return data
@@ -231,16 +254,23 @@ class Remote(object):
         But just return a dictionary. Don't make it local.
 
         """
-        #r = self.get("fetch",{"uid":uid})
-        r = self.get("document/%s"%uid)
-        remote_doc = json.loads(r.content)
-        return remote_doc
+        try:
+            r = self.get("document/%s"%uid)
+            remote_doc = json.loads(r.content)
+            return remote_doc
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
 
     def get_docs(self):
         """Get list of remote documents."""
         r = yew.remote.get("document")
-        response = json.loads(r.content)
-        return response['results']
+        try:
+            response = json.loads(r.content)
+            return response['results']
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
 
     STATUS_NO_CONNECTION = -1 
     STATUS_REMOTE_SAME = 0 
@@ -631,6 +661,7 @@ class YewStore(object):
             c.execute(sql,(uid,name,location,kind))
             self.conn.commit()
             c.close()
+        return self.get_doc(uid)
 
     def reindex_doc(self, doc):
         """Refresh index information."""
@@ -661,7 +692,7 @@ class YewStore(object):
         with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
     
-    def create_document(self, name, location, kind):
+    def create_document(self, name, location, kind, content=None):
         if not location:
             location = self.location
         uid = str(uuid.uuid1())   
@@ -671,8 +702,9 @@ class YewStore(object):
         p = os.path.join(path,"doc."+kind.lower())
         self.touch(p)
         if os.path.exists(p):
-            self.index_doc(uid,name,location,kind)
-
+            doc = self.index_doc(uid,name,location,kind)
+            if content:
+                doc.put_content(content)
         # make this the current document
         self.put_user_pref('current_doc',uid)
 
@@ -718,7 +750,7 @@ def cli(user):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--location', help="Location endpoint alias for document", required=False)
-@click.option('--kind', default='md', help="Type of document, txt, md, rst, json, etc.", required=False)
+@click.option('--kind', '-k', default='md', help="Type of document, txt, md, rst, json, etc.", required=False)
 def create(name,location,kind):
     """Create a new document."""
     if not name:
@@ -990,7 +1022,7 @@ def delete(name,list_docs,force,remote):
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
-def cat(name,list_docs,remote):
+def show(name,list_docs,remote):
     """Send contents of document to stdout."""
 
     doc = get_document_selection(name,list_docs)
@@ -999,11 +1031,11 @@ def cat(name,list_docs,remote):
         if remote_doc:
             click.echo(remote_doc['content'])
     else:
-        click.echo(doc.get_content())
-
-
-import difflib
-#from difflib_data import *
+        if doc:
+            click.echo(doc.get_content())
+        else:
+            click.echo("no matching documents")
+    sys.stdout.flush()
 
 def diff_content(doc1,doc2):
     #d = difflib.Differ()
@@ -1016,7 +1048,7 @@ def diff_content(doc1,doc2):
 @click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
 @click.option('--diff','-d',is_flag=True, required=False)
-def show(name,list_docs,remote,diff):
+def describe(name,list_docs,remote,diff):
     """Show document details."""
 
     doc = get_document_selection(name,list_docs)
@@ -1110,6 +1142,8 @@ def kind(name,list_docs):
 def ping():
     """Ping server."""
     r = yew.remote.ping()
+    if not r:
+        sys.exit(1)
     if r.status_code == 200:
         sdt = dateutil.parser.parse(json.loads(r.content))
         click.echo("Server time  : %s" % sdt)
@@ -1121,6 +1155,8 @@ def ping():
 def api():
     """Get API of the server."""
     r = yew.remote.api()
+    if not r:
+        sys.exit(1)
     if r.status_code == 200:
         # content should be server time
         print r.content
@@ -1255,6 +1291,12 @@ def _configure():
 def register():
     """Try to get a user account on remote."""
 
+    # make sure we have a connection to the server
+    r = yew.remote.ping()
+    if not r:
+        click.echo("Could not connect")
+        sys.exit(1)
+
     # first make sure we are configured
     _configure()
 
@@ -1283,14 +1325,61 @@ def configure():
     """Get configuration information from user."""
     _configure()
 
-#@cli.command()
-def read():
-    """Get strings from stdin."""
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+@click.option('--location', required=False)
+@click.option('--kind','-k', required=False)
+@click.option('--create','-c',is_flag=True, required=False, help="Create a new document")
+@click.option('--append','-a',is_flag=True, required=False, help="Append to an existing document")
+def read(name, list_docs, location, kind, create, append):
+    """Get input from stdin and either create a new document or append to and existing.
 
-    with click.open_file('-','r') as f:
-        i = f.read()
-    click.echo("GOT THIS: ")
-    click.echo(i)
+    --create and --append are mutually exclusive.
+    --create requires a name.
+    """
+
+    if create and append:
+        click.echo("create and append are mutually exclusive")
+        sys.exit(1)
+
+    if create and not name:
+        click.echo("a name must be provided when creating")
+        sys.exit(1)
+
+
+    f = click.open_file('-','r')
+
+    input = f.read()
+
+    if not (name or create or append):
+        # we'll assume create
+        # let's ask for a name
+        name = click.prompt("Provide a title for the new document", type=str)
+        create = True
+        append = False
+
+    # if name, we want to either 1) create new file with that name
+    # or 2) we want to append or replace an existing one
+    if append:
+        doc = get_document_selection(name,list_docs)
+    
+    # get the type of file
+    # we'll ignore this if appending
+    kind_tmp = yew.store.get_user_pref("default_doc_type")
+    if kind_tmp and not kind:
+        kind = kind_tmp
+    else:
+        kind = 'md'
+
+    if not location:
+        location = 'default'
+
+    if create:
+        doc = yew.store.create_document(name, location, kind, content=input)
+    else:
+        s = doc.get_content() + input
+        doc.put_content(s)
 
 ##### our one global ####
 yew = YewCLI()
