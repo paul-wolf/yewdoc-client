@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import io
 import sys
 import uuid
 import traceback
@@ -91,7 +92,6 @@ class Document(object):
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
 
-
     def get_digest(self):
         return get_sha_digest(self.get_content())
 
@@ -168,6 +168,10 @@ class RemoteException(Exception):
     """Custom exception for remote errors."""
     pass
 
+class OfflineException(Exception):
+    """Raised if remote operation attempted when offline."""
+    pass
+
 class Remote(object):
     """Handles comms with server."""
 
@@ -180,7 +184,10 @@ class Remote(object):
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
         self.basic_auth = False
-        self.offline = False
+
+        # if store thinks we are offline
+        self.offline = store.offline
+        
 
     def check_data(self):
         if not self.token or not self.url:
@@ -203,6 +210,8 @@ class Remote(object):
 
     def delete(self,endpoint):
         """Perform delete on remote."""
+        if self.offline:
+            raise OfflineException()
         self.check_data()
         url = "%s/api/%s/" % (self.url,endpoint)
         try:
@@ -213,6 +222,8 @@ class Remote(object):
 
     def register_user(self,data):
         """Register a new user."""
+        if self.offline:
+            raise OfflineException()
         try:
             return self.post("register_user",data)
         except ConnectionError:
@@ -221,14 +232,19 @@ class Remote(object):
 
     def ping(self):
         """Call remote ping() method."""
+        if self.offline:
+            raise OfflineException()
         try:
             return self.get("ping")
         except ConnectionError:
             click.echo("Could not connect to server")
+            self.offline = True
             return None
 
     def api(self):
         """Return the api from remote."""
+        if self.offline:
+            raise OfflineException()
         try:
             return self.get("")
         except ConnectionError:
@@ -241,6 +257,8 @@ class Remote(object):
         Return remote digest or None.
 
         """
+        if self.offline:
+            raise OfflineException()
         r = self.get("exists",{"uid":uid})
         if r and r.status_code == 200:
             data = json.loads(r.content)
@@ -254,6 +272,8 @@ class Remote(object):
         But just return a dictionary. Don't make it local.
 
         """
+        if self.offline:
+            raise OfflineException()
         try:
             r = self.get("document/%s"%uid)
             remote_doc = json.loads(r.content)
@@ -264,6 +284,8 @@ class Remote(object):
 
     def get_docs(self):
         """Get list of remote documents."""
+        if self.offline:
+            raise OfflineException()
         r = yew.remote.get("document")
         try:
             response = json.loads(r.content)
@@ -277,6 +299,7 @@ class Remote(object):
     STATUS_REMOTE_NEWER = 1
     STATUS_REMOTE_OLDER = 2
     STATUS_DOES_NOT_EXIST = 3
+    STATUS_REMOTE_DELETED = 4
 
     STATUS_MSG = {
         STATUS_NO_CONNECTION:"can't connect",
@@ -284,10 +307,14 @@ class Remote(object):
         STATUS_REMOTE_NEWER:"remote is newer",
         STATUS_REMOTE_OLDER:"remote is older",
         STATUS_DOES_NOT_EXIST:"remote does not exist",
+        STATUS_REMOTE_DELETED:"remote was deleted",
     }
 
     def doc_status(self,uid):
         """Return status: exists-same, exists-newer, exists-older, does-not-exist."""
+
+        if self.offline:
+            raise OfflineException()
 
         doc = self.store.get_doc(uid)
 
@@ -321,6 +348,9 @@ class Remote(object):
         If it exists, it will be updated. 
 
         """
+        if self.offline:
+            raise OfflineException()
+
         status = self.doc_status(doc.uid)
 
         if status == Remote.STATUS_REMOTE_SAME \
@@ -346,6 +376,8 @@ class Remote(object):
         Raise exceptions if user exists or missing or invalid data.
 
         """
+        if self.offline:
+            raise OfflineException()
         data ={
             "username":username,
             "password":password,
@@ -360,6 +392,8 @@ class Remote(object):
         username and password required
 
         """
+        if self.offline:
+            raise OfflineException()
         pass
 
 
@@ -376,6 +410,7 @@ class YewStore(object):
 
     global_preferences = [
         "username",
+        "offline",
     ]
 
     user_preferences = [
@@ -401,10 +436,12 @@ class YewStore(object):
         home = expanduser("~")
         yew_dir = os.path.join(home,'.yew.d')
         if not os.path.exists(yew_dir):
+            self.set_global('offline',True)
             os.makedirs(yew_dir)
         self.yewdb_path = os.path.join(yew_dir,'yew.db')
         self.conn = self.make_db(self.yewdb_path)
         self.username = self.get_global('username','yewser')
+        self.offline = self.get_global('offline',False)
 
 
     def get_storage_directory(self):
@@ -954,6 +991,12 @@ def sync(name,force):
     Does nothing if docs are the same.
 
     """
+    # make sure we are online
+    try:
+        r = yew.remote.ping()
+    except OfflineException:
+        click.echo("can't sync in offline mode")
+
     # get local docs
     docs_local = yew.store.get_docs()
     docs_remote = yew.remote.get_docs()
@@ -1212,7 +1255,7 @@ def convert(name,destination_format, list_docs, formats):
                             doc.kind,
                             destination_format)
     click.echo(dest)
-
+    sys.stdout.flush()
 
 
 @cli.command()
@@ -1325,6 +1368,8 @@ def configure():
     """Get configuration information from user."""
     _configure()
 
+
+
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
@@ -1348,9 +1393,16 @@ def read(name, list_docs, location, kind, create, append):
         sys.exit(1)
 
 
-    f = click.open_file('-','r')
+    #f = click.open_file('-','r')
+    #f = sys.stdin
 
-    input = f.read()
+    content = ''
+
+    if sys.stdin.isatty() or True:
+        content = sys.stdin.read()
+    else:
+        content = get_input()
+
 
     if not (name or create or append):
         # we'll assume create
@@ -1376,9 +1428,9 @@ def read(name, list_docs, location, kind, create, append):
         location = 'default'
 
     if create:
-        doc = yew.store.create_document(name, location, kind, content=input)
+        doc = yew.store.create_document(name, location, kind, content=content)
     else:
-        s = doc.get_content() + input
+        s = doc.get_content() + content
         doc.put_content(s)
 
 ##### our one global ####
