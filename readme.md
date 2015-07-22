@@ -3,10 +3,10 @@ YEWDOC
 
 Yewdoc is a document editor that makes creating and editing text documents from the command line easier. 
 
-It should be emphasised that it's for *text* documents: plain text, restructuredtext, markdown, etc. It offers these features:
+It should be emphasised that it's for *text* documents: plain text, restructuredText, markdown, etc. It offers these features:
 
 * Filesystem transparency: the user doesn't need to know where files are stored. 
-* Familiar commands: yewdoc has commands like 'ls', 'cat', 'head', 'tail', that are familiar to most shell users.
+* Familiar commands: yewdoc has commands like 'ls', 'head', 'tail', that are familiar to most shell users.
 * Cloud storage for synchronising to multiple devices/workstations. 
 * Document conversions: it will generate any format that pandoc is able to convert to/from. There is special support for generation of html and the use of templates. 
 * Supports attachments: it supports attaching any file types but in particular graphics files that might be referenced in-line. 
@@ -16,31 +16,51 @@ You might think of it as a personal wiki, though the capabilities go beyond that
 
 It's possilbe to maintain text documents on a server and sync to any local device that supports Python (> 2.7) and one of the common *nix shells. 
 
+Installation
+============
+
+Make sure you are in the directory and execute the install command:
+
+    ./install.sh
+
+That should be all that is required. 
+
+Usage
+=====
+
 Create a new file and start editing: 
 
-    yd create "My new text file"
+    yd create foo
 
 Yewdoc uses the EDITOR environment to determine what editor to launch. You can also have yewdoc launch an editor from the host OS and let it decide which application handles that file type. This might be Atom, Sublime Text or whatever editor you choose to associate with the file type. 
 
 Edit the file we just created:
 
-    yd edit my
+    yd edit foo
 
 You don't have to provide the whole title of the document. If the fragment, in this case "my", matches case-insensitively to a document, it will be loaded in the editor. Otherwise, the user is presented with a choice of all matching files. 
 
-    yd show my
+    yd show foo
 
-will dump the contents of "My new text file" to stdout. Create a new document now from stdin:
+will dump the contents of "Foo" to stdout. Create a new document now from stdin:
 
-    yd read "The next big thing"
+    yd read bar
 
-Type some content and enter end of file (ctrl-D usually). 
+Type some content and enter end of file (ctrl-d usually). 
 
-Copy a document: 
+Copy a document to a new one: 
 
-    yd show my | yd read "the next"
+    yd show foo | yd read --create bar
 
-You will be prompted that the file exists and do you want to start a new file, append to the existing file, etc. 
+The contents of foo will be appear in bar. 
+
+List all your documents: 
+
+    yd ls
+
+List all documents on the server:
+
+    yd ls -r
 
 Configuration
 =============
