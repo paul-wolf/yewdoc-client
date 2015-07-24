@@ -440,7 +440,7 @@ class YewStore(object):
         home = expanduser("~")
         yew_dir = os.path.join(home,'.yew.d')
         if not os.path.exists(yew_dir):
-            self.set_global('offline',True)
+        #     self.put_global('offline',True)
             os.makedirs(yew_dir)
         self.yewdb_path = os.path.join(yew_dir,'yew.db')
         self.conn = self.make_db(self.yewdb_path)
@@ -812,7 +812,7 @@ def create(name,location,kind):
     doc = yew.store.create_document(name,location,kind)
 
     click.echo("created document: %s" % doc.uid)
-    click.edit(editor='emacs', require_save=True, filename=doc.path)
+    click.edit(require_save=True, filename=doc.path)
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
 
 
