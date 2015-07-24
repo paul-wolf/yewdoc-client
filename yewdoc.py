@@ -24,9 +24,13 @@ import webbrowser
 import tempfile
 import re
 import string
-import pypandoc
 import difflib
 #from difflib_data import *
+
+try:
+    import pypandoc
+except:
+    print "pypandoc won't load. convert cmd will not work"
 
 # suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
