@@ -45,6 +45,17 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+def slugify(value):
+    """Stolen from Django: convert name. 
+    Normalizes string, converts to lowercase, removes non-alpha characters,
+    and converts spaces to hyphens.
+    """
+    import unicodedata
+    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
+    value = unicode(re.sub('[^\w\s-]', '', value).strip().lower())
+    #... re.sub('[-\s]+', '-', value)
+    value = '-'.join(value.split()).lower()
+    return value
 
 def err():
     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -983,8 +994,11 @@ def ls(name,info,remote):
             click.echo(doc.get_size(), nl=False)
             click.echo("   ", nl=False)
         click.echo(doc.name, nl=False)
+        if info:
+            click.echo("   ", nl=False)
+            click.echo(slugify(doc.name))
         click.echo('')
-
+        
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--force','-f',is_flag=True, required=False)
