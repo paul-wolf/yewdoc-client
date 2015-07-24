@@ -1264,7 +1264,7 @@ def convert(name,destination_format, list_docs, formats):
 
 @cli.command()
 @click.argument('path', required=True)
-@click.option('--kind','-k', required=False)
+@click.option('--kind','-k', default="md", required=False)
 def take(path,kind):
     """Create a document from a file.
 
