@@ -1264,7 +1264,7 @@ def convert(name,destination_format, list_docs, formats):
 
 @cli.command()
 @click.argument('path', required=True)
-@click.option('--kind','-k', default="md", required=False)
+@click.option('--kind','-k', required=False)
 def take(path,kind):
     """Create a document from a file.
 
@@ -1283,6 +1283,9 @@ def take(path,kind):
 
     if not kind:
         kind = yew.store.get_user_pref('default_doc_type')
+    if not kind:
+        # because the user pref might be null
+        kind = "md"
 
     title = os.path.splitext(path)[0]
     doc = yew.store.create_document(title,'default',kind)
