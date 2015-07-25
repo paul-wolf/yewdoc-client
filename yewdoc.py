@@ -337,8 +337,8 @@ class Remote(object):
         r = yew.remote.get("document")
         try:
             response = json.loads(r.content)
-            print r.content
-            return response['results']
+            #print r.content
+            return response
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
@@ -593,14 +593,14 @@ class YewStore(object):
         """Set a global preference. Must be in class var global_preferences."""
         if not k in YewStore.global_preferences:
             raise ValueError("Unknown global preference: %s. Choices are: %s" % (k,", ".join(YewStore.global_preferences)))
-        print "put_global (%s,%s)" % (k,v)
+        #print "put_global (%s,%s)" % (k,v)
         if not k or not v:
             print "not storing nulls"
             return # don't store null values
         c = self.conn.cursor()
         if self.get_global(k):
             sql = "UPDATE global_prefs SET value = ? WHERE key = ?"
-            print "UPDATE global_prefs SET value = '%s' WHERE key = '%s'" % (v,k)
+            #print "UPDATE global_prefs SET value = '%s' WHERE key = '%s'" % (v,k)
             c.execute(sql,(v,k,))
             click.echo("updated global: %s = %s" % (k, self.get_global(k)))
         else:
@@ -1066,11 +1066,10 @@ def ls(name,info,remote):
     """List documents."""
 
     if remote:
-        r = yew.remote.get("document")
-        print r.content
-        response = json.loads(r.content)
-        for doc in response['results']:
-            print doc['uid'], doc['title']
+        response = yew.remote.get_docs()
+        for doc in response:
+            click.echo("%s %s" % (doc['uid'], doc['title']))
+
         sys.exit(0)
 
     if name:
@@ -1202,7 +1201,7 @@ def diff_content(doc1,doc2):
     #d = difflib.Differ()
     #diff = d.compare(doc1,doc2)
     diff = difflib.ndiff(doc1,doc2)
-    print '\n'.join(list(diff))
+    click.echo('\n'.join(list(diff)))
 
 @cli.command()
 @click.argument('name', required=False)
@@ -1225,10 +1224,11 @@ def describe(name,list_docs,remote,diff):
     if diff and not status == Remote.STATUS_REMOTE_SAME \
        and not Remote.STATUS_NO_CONNECTION:
         remote_doc = yew.remote.fetch(doc.uid)
-        print diff_content(
+        s = diff_content(
             remote_doc['content'].rstrip().splitlines(),
             doc.get_content().rstrip().splitlines()
         )
+        click.echo(s)
 
 @cli.command()
 def push():
@@ -1295,7 +1295,7 @@ def kind(name,list_docs):
         click.echo("%s" % (d))
     kind = click.prompt('Select the new document kind ', type=str)
     #kind = yew.store.doc_kinds[v]
-    print "Changing document kind to: ", kind
+    click.echo("Changing document kind to: %s" % kind)
     doc = yew.store.change_doc_kind(doc,kind)
     yew.remote.push_doc(doc)
 
@@ -1320,7 +1320,7 @@ def api():
         sys.exit(1)
     if r.status_code == 200:
         # content should be server time
-        print r.content
+        click.echo(r.content)
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
@@ -1365,9 +1365,9 @@ def convert(name,destination_format, list_docs, formats):
         sys.exit(0)
 
     doc = get_document_selection(name,list_docs)
-    print doc.name
-    print doc.kind
-    print destination_format
+    click.echo(doc.name)
+    click.echo(doc.kind)
+    click.echo(destination_format)
 
     dest = pypandoc.convert(doc.get_content(),
                             doc.kind,
