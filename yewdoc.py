@@ -45,6 +45,13 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+def is_binary_string():
+    textchars = bytearray([7,8,9,10,12,13,27]) + bytearray(range(0x20, 0x100))
+    return bool(bytes.translate(None, textchars))
+
+def is_binary_file(fullpath):
+    return is_binary_string(open(fullpath, 'rb').read(1024))
+
 def slugify(value):
     """Stolen from Django: convert name. 
     Normalizes string, converts to lowercase, removes non-alpha characters,
@@ -663,14 +670,17 @@ class YewStore(object):
         return doc
 
 
-    def search_names(self,name_frag):
-        """Get a doc via reged on name."""
-
-        username = self.get_global('username')
-        doc = None
-        sql = "select uid,name,location,kind FROM document WHERE name LIKE ?"
+    def search_names(self, name_frag, exact=False):
+        """Get a docs with LIKE unless matching exactly."""
         c = self.conn.cursor()
-        c.execute(sql,("%"+name_frag+"%",))
+
+        if not exact:
+            sql = "select uid,name,location,kind FROM document WHERE name LIKE ?" 
+            c.execute(sql,("%"+name_frag+"%",))
+        else:
+            sql = "select uid,name,location,kind FROM document WHERE name = ?" 
+            c.execute(sql,(name_frag,))
+
         rows = c.fetchall()
         docs = []
         for row in rows:
@@ -949,9 +959,22 @@ def get_document_selection(name,list_docs,multiple=False):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
-@click.option('--open_file','-o',is_flag=True, required=False, help="Open the file in your host operating system.")
+@click.option('--open-file','-o',is_flag=True, required=False, help="Open the file in your host operating system.")
 def edit(name,list_docs,open_file):
-    """Edit a document."""
+    """Edit a document.
+
+    Set your $EDITOR environment variable to determine what editor
+    will handle the file. 
+
+    When the editor is closed, the file will sync to the server
+    (if not working offline). 
+
+    --open-file will send the the document to the host operating 
+    system for it to decide how to open the file. Since using this 
+    option means the editor is not a child process, 
+    you need to manually sync with remote to push changes. 
+
+    """
 
     doc = get_document_selection(name,list_docs)
 
@@ -1059,7 +1082,12 @@ def sync(name,force):
 @click.option('--force','-f',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
 def delete(name,list_docs,force,remote):
-    """Delete a document."""
+    """Delete a document.
+
+    To delete a remote document, it needs to be local. So, 
+    you may need to sync it from remote before deleting it. 
+
+    """
 
     docs = get_document_selection(name,list_docs,multiple=True)
     if not docs:
@@ -1279,12 +1307,15 @@ def convert(name,destination_format, list_docs, formats):
 @cli.command()
 @click.argument('path', required=True)
 @click.option('--kind','-k', required=False)
-def take(path,kind):
-    """Create a document from a file.
+@click.option('--force','-f', is_flag=True, required=False)
+def take(path,kind,force):
+    """Import a file as a document.
 
     The base filename becomes the document title.
 
     Should be a text type, but we leave that to user.
+
+    --force will cause a similarly titled document to be overwritten
 
     """
     if not os.path.exists(path) or not os.path.isfile(path):
@@ -1295,6 +1326,12 @@ def take(path,kind):
     with click.open_file(path,'r') as f:
         content = f.read()
 
+    filename, file_extension = os.path.splitext(path)
+
+    if not kind:
+        # get the extension of the file without dot
+        if '.' in path:
+            kind = path.split('.')[-1]
     if not kind:
         kind = yew.store.get_user_pref('default_doc_type')
     if not kind:
@@ -1302,6 +1339,20 @@ def take(path,kind):
         kind = "md"
 
     title = os.path.splitext(path)[0]
+    # check if we have one with this title
+    # the behaviour we want is for the user to continuously 
+    # ingest the same file that might be updated out-of-band
+    # TODO: handle multiple titles of same name
+    docs = yew.store.search_names(title)
+    if docs:
+        if len(docs) == 1:
+            if not force:
+                click.echo("A document with this title exists already")
+            if force or click.confirm("Overwrite existing document: %s ?" % docs[0].name):
+                docs[0].put_content(unicode(content))
+                yew.remote.push_doc(docs[0])
+                sys.exit(0)
+
     doc = yew.store.create_document(title,'default',kind)
     doc.put_content(unicode(content))
     yew.remote.push_doc(doc)
