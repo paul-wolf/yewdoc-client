@@ -287,6 +287,8 @@ class Remote(object):
             data = json.loads(r.content)
             if 'digest' in data:
                 return data
+        elif r and r.status_code == 404:
+            return None
         return None
 
     def fetch(self,uid):
@@ -351,6 +353,9 @@ class Remote(object):
         if not rexists:
             return Remote.STATUS_DOES_NOT_EXIST
 
+        if 'deleted' in rexists:
+            return Remote.STATUS_REMOTE_DELETED
+
         if rexists and rexists['digest'] == doc.get_digest():
             return Remote.STATUS_REMOTE_SAME
 
@@ -377,7 +382,8 @@ class Remote(object):
         status = self.doc_status(doc.uid)
 
         if status == Remote.STATUS_REMOTE_SAME \
-           or status == Remote.STATUS_REMOTE_NEWER:
+           or status == Remote.STATUS_REMOTE_NEWER \
+           or status == Remote.STATUS_REMOTE_DELETED:
             return status
         
         data = doc.serialize()
@@ -979,6 +985,13 @@ def edit(name,list_docs,open_file):
 
     doc = get_document_selection(name,list_docs)
 
+    #if doc is null, we didn't find one, ask if we should create:
+    if not doc:
+        if click.confirm("Couldn't find that document, shall we create it?"):
+            doc = yew.store.create_document(name,location='default', kind='md')
+        else:
+            sys.exit(0)
+
     if open_file: 
         # send to host os to ask it how to open file
         click.launch(doc.get_path())
@@ -993,8 +1006,9 @@ def edit(name,list_docs,open_file):
 @cli.command()
 @click.argument('spec', required=True)
 @click.option('--string-only','-s',is_flag=True, required=False)
+@click.option('--insensitive','-i',is_flag=True, required=False)
 #@click.option('--remote','-r',is_flag=True, required=False)
-def find(spec, string_only):
+def find(spec, string_only, insensitive):
     """Search for spec in contents of docs.
 
     spec is a regular expression unless string-only is selected 
@@ -1003,13 +1017,21 @@ def find(spec, string_only):
     """
 
     docs = yew.store.get_docs()
+    
     for doc in docs:
+        found = False
         if string_only:
-            if spec in doc.get_content():
-                click.echo(doc.name)
+            if not insensitive:
+                if spec in doc.get_content():
+                    found = True
+            else:
+                if spec.lower() in doc.get_content().lower():
+                    found = True
         elif re.search(spec, doc.get_content()):
-            click.echo(doc.name)
+            found = True
 
+        if found:
+            click.echo(doc.name)
 
 @cli.command()
 @click.argument('name', required=False)
@@ -1083,6 +1105,8 @@ def sync(name,force):
             click.echo("push new doc to remote: %s %s" % (doc.uid,doc.name))
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
+        elif c == Remote.STATUS_REMOTE_DELETED:
+            click.echo("remote was deleted: cannot sync to remote")
         else:
             raise Exception("Invalid remote status: %s for %s" % (c,str(doc)))
 
