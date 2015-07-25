@@ -15,11 +15,28 @@ body {
 p {
 max-width: 500px;
 }
+#sidebar{
+float:left;
+max-width: 200px;
+max-height: 500px;
+overflow:auto;
+margin-right:30px
+}
+#main {
+float:left;
+max-width:900px
+padding: 20px;
+}
 </style>
 </head>
 
 <body>
+<div id="sidebar">
+$nav
+</div>
+<div id="main">
 $content
+</div>
 </body>
 
 </html>
