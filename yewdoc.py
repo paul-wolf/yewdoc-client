@@ -112,8 +112,13 @@ class Document(object):
         self.location = location
         self.kind = kind
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
+        # TODO: lazy load
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
+
+    def get_safe_name(self):
+        """Return safe name."""
+        return slugify(self.name)
 
     def get_digest(self):
         return get_sha_digest(self.get_content())
@@ -504,6 +509,14 @@ class YewStore(object):
         home = expanduser("~")
         yew_dir = os.path.join(home,'.yew.d')
         return yew_dir
+
+    def get_tmp_directory(self):
+        """Return path for temporary storage."""
+        home = expanduser("~")
+        tmp_dir = os.path.join(home,'.yew.d','tmp')
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+        return tmp_dir
 
     def make_db(self,path):
         """Create the tables if it does not exist and get or create tables."""
@@ -1330,18 +1343,41 @@ def api():
 def browse(name,list_docs):
     """Convert to html and attempt to load in web browser."""
 
-    doc = get_document_selection(name,list_docs)
-    html = markdown.markdown(doc.get_content())
-    click.echo(html)
-    tmp_file = os.path.join(tempfile.gettempdir(),SG("[\w]{20}.html").render())
+    input_formats = ['md','rst']
+    #doc = get_document_selection(name,list_docs)
+    docs = yew.store.get_docs()
+    nav = ''
+    for doc in docs:
+        tmp_dir = yew.store.get_tmp_directory()
+        tmp_file = os.path.join(tmp_dir,doc.get_safe_name()+".html")
+        a = '<a href="file://%s">%s</a><br/>\n' % (tmp_file,doc.name)
+        nav += a
+    for doc in docs:
+        if doc.kind == 'md':
+            html = markdown.markdown(doc.get_content())
+        else:
+            if not doc.kind in input_formats:
+                kind = 'md'
+            html = pypandoc.convert(
+                doc.get_path(),
+                'html',
+                format = kind
+            )
 
-    with click.open_file('template_0.html','r') as f:
-        t = f.read()
-    template = string.Template(t)
-    dest = template.substitute(title=doc.name,
-                               content=html)
 
-    f = codecs.open(tmp_file, 'w','utf-8').write(dest)
+
+        tmp_dir = yew.store.get_tmp_directory()
+        tmp_file = os.path.join(tmp_dir,doc.get_safe_name()+".html")
+        with click.open_file('template_0.html','r') as f:
+            t = f.read()
+        template = string.Template(t)
+        dest = template.substitute(
+            title=doc.name,
+            content=html,
+            nav=nav
+        )
+        print tmp_file
+        f = codecs.open(tmp_file, 'w','utf-8').write(dest)
     click.launch(tmp_file)
 
 
@@ -1365,9 +1401,9 @@ def convert(name,destination_format, list_docs, formats):
         sys.exit(0)
 
     doc = get_document_selection(name,list_docs)
-    click.echo(doc.name)
-    click.echo(doc.kind)
-    click.echo(destination_format)
+    #click.echo(doc.name)
+    #click.echo(doc.kind)
+    #click.echo(destination_format)
 
     dest = pypandoc.convert(doc.get_content(),
                             doc.kind,
