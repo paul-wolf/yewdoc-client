@@ -214,7 +214,8 @@ class Remote(object):
 
     def check_data(self):
         if not self.token or not self.url:
-            raise RemoteException("Token and url required to reach server. Check user prefs.")
+            raise RemoteException("Token and url required to reach server. Check user prefs.\ 
+            \nTry: 'yd configure'")
 
     def get_headers(self):
         """Get headers used for remote calls."""        
@@ -1452,14 +1453,14 @@ def _configure():
 def register():
     """Try to get a user account on remote."""
 
-    # make sure we have a connection to the server
+    # first make sure we are configured
+    _configure()
+
+    # next make sure we have a connection to the server
     r = yew.remote.ping()
     if not r:
         click.echo("Could not connect")
         sys.exit(1)
-
-    # first make sure we are configured
-    _configure()
 
     username = yew.store.get_user_pref("location.default.username")
     email = yew.store.get_user_pref("location.default.email")
