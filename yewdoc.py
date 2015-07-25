@@ -25,6 +25,7 @@ import tempfile
 import re
 import string
 import difflib
+import re
 #from difflib_data import *
 
 try:
@@ -990,6 +991,27 @@ def edit(name,list_docs,open_file):
     yew.store.update_recent('yewser',doc)
 
 @cli.command()
+@click.argument('spec', required=True)
+@click.option('--string-only','-s',is_flag=True, required=False)
+#@click.option('--remote','-r',is_flag=True, required=False)
+def find(spec, string_only):
+    """Search for spec in contents of docs.
+
+    spec is a regular expression unless string-only is selected 
+    in which case a simple string match is used.
+
+    """
+
+    docs = yew.store.get_docs()
+    for doc in docs:
+        if string_only:
+            if spec in doc.get_content():
+                click.echo(doc.name)
+        elif re.search(spec, doc.get_content()):
+            click.echo(doc.name)
+
+
+@cli.command()
 @click.argument('name', required=False)
 @click.option('--info','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
@@ -1343,7 +1365,7 @@ def take(path,kind,force):
     # the behaviour we want is for the user to continuously 
     # ingest the same file that might be updated out-of-band
     # TODO: handle multiple titles of same name
-    docs = yew.store.search_names(title)
+    docs = yew.store.search_names(title, exact=True)
     if docs:
         if len(docs) == 1:
             if not force:
