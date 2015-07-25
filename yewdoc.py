@@ -214,8 +214,8 @@ class Remote(object):
 
     def check_data(self):
         if not self.token or not self.url:
-            raise RemoteException("Token and url required to reach server. Check user prefs.\ 
-            \nTry: 'yd configure'")
+            raise RemoteException("""Token and url required to reach server. Check user prefs. 
+            Try: 'yd configure'""")
 
     def get_headers(self):
         """Get headers used for remote calls."""        
@@ -264,6 +264,8 @@ class Remote(object):
             click.echo("Could not connect to server")
             self.offline = True
             return None
+        except Exception as e:
+            click.echo(str(e))
 
     def api(self):
         """Return the api from remote."""
@@ -443,6 +445,7 @@ class YewStore(object):
         "offline",
     ]
 
+    # mainly preferences required to connect to server
     user_preferences = [
         "location.default.url",
         "location.default.email",
@@ -1438,7 +1441,8 @@ def _configure():
     Skip secret things like tokens and passwords.
 
     """
-
+    # the preferences need to be in the form:
+    # location.default.username
     for pref in yew.store.user_preferences:
         if 'token' in pref or 'password' in pref:
             continue
