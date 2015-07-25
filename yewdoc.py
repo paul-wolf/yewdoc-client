@@ -232,6 +232,10 @@ class Remote(object):
         url = "%s/api/%s/" % (self.url,endpoint)
         return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
+    def unauthenticated_post(self,endpoint,data={}):
+        url = "%s/%s/" % (self.url,endpoint)
+        return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
+
     def delete(self,endpoint):
         """Perform delete on remote."""
         if self.offline:
@@ -249,7 +253,8 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            return self.post("register_user",data)
+            url = "%s/doc/register_user/" % self.url
+            return requests.post(url, data=data, verify=self.verify)
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
@@ -266,6 +271,21 @@ class Remote(object):
             return None
         except Exception as e:
             click.echo(str(e))
+
+    def unauthenticated_ping(self):
+        """Call remote ping() method."""
+        if self.offline:
+            raise OfflineException()
+        try:
+            url = "%s/doc/unauthenticated_ping/" % (self.url)
+            return requests.get(url, headers=self.headers, verify=self.verify)
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            self.offline = True
+            return None
+        except Exception as e:
+            click.echo(str(e))
+            return None
 
     def api(self):
         """Return the api from remote."""
@@ -317,6 +337,7 @@ class Remote(object):
         r = yew.remote.get("document")
         try:
             response = json.loads(r.content)
+            print r.content
             return response['results']
         except ConnectionError:
             click.echo("Could not connect to server")
@@ -439,7 +460,7 @@ class YewStore(object):
 
     yewdb_path = None
     conn = None
-
+    
     global_preferences = [
         "username",
         "offline",
@@ -1046,6 +1067,7 @@ def ls(name,info,remote):
 
     if remote:
         r = yew.remote.get("document")
+        print r.content
         response = json.loads(r.content)
         for doc in response['results']:
             print doc['uid'], doc['title']
@@ -1454,43 +1476,43 @@ def _configure():
         yew.store.put_user_pref(pref,value)
 
 @cli.command()
+def configure():
+    """Get configuration information from user."""
+    _configure()
+
+
+@cli.command()
 def register():
     """Try to get a user account on remote."""
 
     # first make sure we are configured
-    _configure()
+    #_configure()
 
     # next make sure we have a connection to the server
-    r = yew.remote.ping()
-    if not r:
+    if not yew.remote.unauthenticated_ping():
         click.echo("Could not connect")
         sys.exit(1)
 
     username = yew.store.get_user_pref("location.default.username")
     email = yew.store.get_user_pref("location.default.email")
     first_name = yew.store.get_user_pref("location.default.first_name")
-    first_name = yew.store.get_user_pref("location.default.last_name")
+    last_name = yew.store.get_user_pref("location.default.last_name")
     p = SG("[\w\d]{12}").render()
     password = click.prompt("Enter a new password or accept the default ", default=p, type=str)
-    r = yew.remote.register_user({
+    r = yew.remote.register_user(data= {
         "username":username,
         "email":email,
         "password":password,
         "first_name":first_name,
         "last_name":last_name,
     })
-    click.echo("status code: %s" % r.status_code)
-    token = json.loads(r.content)
-    click.echo("response: %s" %token)
-    if r.status_code == 200:
-        yew.store.put_user_pref("location.default.token",token)
-
-
-@cli.command()
-def configure():
-    """Get configuration information from user."""
-    _configure()
-
+    if r.status_code == 200:        
+        data = json.loads(r.content)
+        yew.store.put_user_pref("location.default.token",data['token'])
+    else:
+        click.echo("Something went wrong")
+        click.echo("status code: %s" % r.status_code)
+        click.echo("response: %s" % r.content)
 
 
 @cli.command()
