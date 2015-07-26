@@ -26,6 +26,7 @@ import re
 import string
 import difflib
 import re
+import humanize as h
 from jinja2 import Template
 
 
@@ -76,6 +77,11 @@ def is_uuid(uid):
     uuidregex = re.compile('[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z', re.I)
     return uuidregex.match(uid)
 
+def is_short_uuid(s):
+    """Return non-None if uid is a uuid."""
+    uuid_short_regex = re.compile('[0-9a-f]{8}\Z', re.I)
+    return uuid_short_regex.match(s)
+
 def delete_directory(folder):
     """Delete directory p and all sub directories and files."""
     try:
@@ -116,6 +122,10 @@ class Document(object):
         # TODO: lazy load
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
+
+    def short_uid(self):
+        """Return first part of uuid."""
+        return self.uid.split('-')[0]
 
     def get_safe_name(self):
         """Return safe name."""
@@ -796,6 +806,18 @@ class YewStore(object):
             return None
         return Document(self,row[0],row[1],row[2],row[3])
 
+    def get_short(self,s):
+        """Get document but with abbreviated uid."""
+        if not is_short_uuid(s):
+            raise Exception("Not a valid short uid.")
+        sql = "select uid FROM document WHERE uid LIKE ?"
+        c = self.conn.cursor()
+        c.execute(sql,(s+"%",))
+        row = c.fetchone()
+        if not row:
+            return None
+        return self.get(row[0]) # should be full uid
+
     def touch(self,path):
         with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
@@ -987,6 +1009,9 @@ def get_document_selection(name,list_docs,multiple=False):
     if name and is_uuid(name):
         return yew.store.get(name)
 
+    if name and is_short_uuid(name):
+        return yew.store.get_short(name)
+
     if not name and not list_docs:
         docs = yew.store.get_recent('yewser')
         return document_menu(docs,multiple)
@@ -1076,7 +1101,8 @@ def find(spec, string_only, insensitive):
 @click.argument('name', required=False)
 @click.option('--info','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
-def ls(name,info,remote):
+@click.option('--humanize','-h',is_flag=True, required=False)
+def ls(name,info,remote, humanize):
     """List documents."""
 
     if remote:
@@ -1093,16 +1119,24 @@ def ls(name,info,remote):
     for doc in docs:
         if info:
             click.echo("   ", nl=False)
-            click.echo(doc.uid, nl=False)
+            click.echo(doc.short_uid(), nl=False)
             click.echo("   ", nl=False)
-            click.echo(doc.kind, nl=False)
+            click.echo(doc.kind.rjust(5), nl=False)
             click.echo("   ", nl=False)
-            click.echo(doc.get_size(), nl=False)
+            if humanize:
+                click.echo(h.naturalsize(doc.get_size()).rjust(10), nl=False)
+            else:
+                click.echo(str(doc.get_size()).rjust(10), nl=False)
+            click.echo("   ", nl=False)
+            if humanize:
+                click.echo(h.naturaltime(doc.get_last_updated_utc().replace(tzinfo=None)).rjust(15), nl=False)
+            else:
+                click.echo(doc.get_last_updated_utc().replace(tzinfo=None), nl=False)
             click.echo("   ", nl=False)
         click.echo(doc.name, nl=False)
         if info:
             click.echo("   ", nl=False)
-            click.echo(slugify(doc.name))
+            click.echo(slugify(doc.name), nl=False)
         click.echo('')
         
 @cli.command()
