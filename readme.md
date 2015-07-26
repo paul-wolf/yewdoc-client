@@ -1,20 +1,39 @@
 YEWDOC
 ======
 
-Yewdoc is a document editor that makes creating and editing text documents from the command line easier. 
+Yewdoc is a document editor that makes creating and editing text
+documents from the command line easier.
 
-It should be emphasised that it's for *text* documents: plain text, restructuredText, markdown, etc. It offers these features:
+It should be emphasised that it's for *text* documents: plain text,
+restructuredText, markdown, etc. It offers these features:
 
-* Filesystem transparency: the user doesn't need to know where files are stored. 
-* Familiar commands: yewdoc has commands like 'ls', 'head', 'tail', that are familiar to most shell users.
+* Filesystem transparency: the user doesn't need to know where files
+  are stored.
+* Familiar commands: yewdoc has commands like 'ls', 'head', 'tail',
+  that are familiar to most shell users.
 * Cloud storage for synchronising to multiple devices/workstations. 
-* Document conversions: it will generate any format that pandoc is able to convert to/from. There is special support for generation of html and the use of templates. 
-* Supports attachments: it supports attaching any file types but in particular graphics files that might be referenced in-line. 
-* Integration with other command line utilities: you can do normal shell piping in and out, grep, etc. 
+* Document conversions: it will generate any format that pandoc is
+  able to convert to/from. There is special support for generation of
+  html and the use of templates.
+* Supports attachments: it supports attaching any file types but in
+  particular graphics files that might be referenced in-line by the
+  document.
+* Integration with other command line utilities: you can do normal
+  shell piping in and out, grep, etc.
  
-You might think of it as a personal wiki, though the capabilities go beyond that. The target users are those who prefer to work in a single context, such as command-line without the mental overhead of switching back and forth between a shell and the host OS GUI. When working regularly on the command line, it is a considerable annoyance to have to break out to use the host OS file management app to find files and use the mouse. Yewdoc lets the user seamlessly browse and operate on her collection of text files. These can be larger documents, notes, etc. Exporting to other formats is a easy and natural. 
+You might think of it as a personal wiki, though the capabilities go
+beyond that. The target users are those who prefer to work in a single
+context, such as command-line without the mental overhead of switching
+back and forth between a shell and the host OS GUI. When working
+regularly on the command line, it is a considerable annoyance to have
+to break out to use the host OS file management app to find files and
+use the mouse. Yewdoc lets the user seamlessly browse and operate on
+her collection of text files. These can be larger documents, notes,
+etc. Exporting to other formats is a easy and natural.
 
-It's possilbe to maintain text documents on a server and sync to any local device that supports Python (> 2.7) and one of the common *nix shells. 
+It's possilbe to maintain text documents on a server and sync to any
+local device that supports Python (> 2.7) and one of the common *nix
+shells.
 
 Installation
 ============
@@ -22,6 +41,9 @@ Installation
 Make sure you are in the directory and execute the install command:
 
     ./install.sh
+
+> Currently pandoc must be installed following the instructions specific
+> to your operating system.
 
 That should be all that is required. 
 
@@ -32,13 +54,20 @@ Create a new file and start editing:
 
     yd create foo
 
-Yewdoc uses the EDITOR environment to determine what editor to launch. You can also have yewdoc launch an editor from the host OS and let it decide which application handles that file type. This might be Atom, Sublime Text or whatever editor you choose to associate with the file type. 
+Yewdoc uses the EDITOR environment to determine what editor to
+launch. You can also have yewdoc launch an editor from the host OS and
+let it decide which application handles that file type. This might be
+Atom, Sublime Text or whatever editor you choose to associate with the
+file type.
 
 Edit the file we just created:
 
     yd edit foo
 
-You don't have to provide the whole title of the document. If the fragment, in this case "my", matches case-insensitively to a document, it will be loaded in the editor. Otherwise, the user is presented with a choice of all matching files. 
+You don't have to provide the whole title of the document. If the
+fragment, in this case "my", matches case-insensitively to a document,
+it will be loaded in the editor. Otherwise, the user is presented with
+a choice of all matching files.
 
     yd show foo
 
@@ -52,7 +81,7 @@ Copy a document to a new one:
 
     yd show foo | yd read --create bar
 
-The contents of foo will be appear in bar. 
+The contents of foo will appear in bar. 
 
 List all your documents: 
 
@@ -61,6 +90,33 @@ List all your documents:
 List all documents on the server:
 
     yd ls -r
+
+Tags
+====
+
+Tags are an important featureset. You can create tags and
+associate them with documents for making file organisation and
+publishing easier.
+
+Create a tag:
+
+    yd tag -c red
+
+Assign the 'red' tag to the doc 'foo':
+
+    yd tag red foo
+
+List documents with the red tag in long format, humanized:
+
+    yd ls -lh -t red
+
+Dissociate the tag 'red' from the document 'foo':
+
+    yd tag -u red foo
+
+List all tags:
+
+    yd tag
 
 Configuration
 =============

@@ -1089,11 +1089,11 @@ def tag(tagname,docname,list_docs,create,untag):
             else:
                 yew.store.dissociate_tag(doc.uid,tag.tagid)
                 click.echo("%s => %s removed" % (tag.name, doc.name))
-        else:
-            # list tags
-            tags = yew.store.get_tags(tagname)
-            for tag in tags:
-                click.echo(tag.name)
+    else:
+        # list tags
+        tags = yew.store.get_tags(tagname)
+        for tag in tags:
+            click.echo(tag.name)
 
 @cli.command()
 @click.argument('name', required=False)
