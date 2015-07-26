@@ -117,6 +117,13 @@ class Tag(object):
         self.tagid = tagid
         self.name = name
 
+    def __str__(self):
+        return str(self.__unicode__())
+
+    def __unicode__(self):
+        return self.name
+
+
 class TagDoc(object):
     def __init__(self,store,tagid,uid):
         self.store = store
@@ -547,21 +554,36 @@ class YewStore(object):
         """Create the tables if it does not exist and get or create tables."""
         conn = sqlite3.connect(path)
         c = conn.cursor()
-        sql = '''CREATE TABLE IF NOT EXISTS global_prefs (key, value); 
-        CREATE TABLE IF NOT EXISTS user_prefs (username, key, value);
-        CREATE TABLE IF NOT EXISTS user_project_prefs (username, project, key, value);
-        CREATE TABLE IF NOT EXISTS document (uid,name,location,kind,digest);
-        CREATE TABLE IF NOT EXISTS tag (
-            location,tagid,name,
-            PRIMARY KEY (location, tagid)
-        );
-        CREATE TABLE IF NOT EXISTS tagdoc (
-            uid,tagid,
-            FOREIGN KEY(uid) REFERENCES document(uid),
-            FOREIGN KEY(tagid) REFERENCES document(tagid)
-        );
+        sql = '''CREATE TABLE IF NOT EXISTS global_prefs (key, value); '''
+        c.execute(sql)
 
-        '''
+        sql = '''CREATE TABLE IF NOT EXISTS user_prefs (username, key, value);'''
+        c.execute(sql)
+        
+        sql = '''CREATE TABLE IF NOT EXISTS user_project_prefs (username, project, key, value);'''
+        c.execute(sql)
+
+        sql = '''CREATE TABLE IF NOT EXISTS document (uid,name,location,kind,digest);'''
+        c.execute(sql)
+
+        sql = '''
+        CREATE TABLE IF NOT EXISTS tag (
+            location NOT NULL,
+            tagid NOT NULL,
+            name NOT NULL,
+            PRIMARY KEY (location, tagid),
+            UNIQUE(location,name)
+        );'''
+        c.execute(sql)
+
+        sql = '''CREATE TABLE IF NOT EXISTS tagdoc (
+            uid NOT NULL,
+            tagid NOT NULL,
+            FOREIGN KEY(uid) REFERENCES document(uid),
+            FOREIGN KEY(tagid) REFERENCES document(tagid),
+            UNIQUE(uid,tagid)
+        );'''
+        c.execute(sql)
 
         conn.commit()
         return conn
@@ -569,32 +591,34 @@ class YewStore(object):
     def get_or_create_tag(self,name):
         """Create a new tag. Make sure it is unique."""
         c = self.conn.cursor()
-        s = "SELECT tagid,name FROM tag WHERE location = ? and name = ?"
-        c.execute(s,(self.location,name))
+        tagid = SG("#[\l\d]{8}").render()
+        s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
+        # print "INSERT OR IGNORE INTO tag VALUES ('%s','%s','%s')" % (self.location,tagid,name)
+        c.execute(s,(self.location,tagid,name))
+        self.conn.commit()
+        s = "SELECT * FROM tag WHERE tagid = ?"
+        c.execute(s, (tagid,))
         row = c.fetchone()
-        print row
-        if row:
-            return row[0]
-        else:
-            tagid = SG("#[\l\d]{8}").render()
-            s = "INSERT INTO tag VALUES (?,?,?);"
-            print "INSERT INTO tag VALUES ('%s','%s','%s')" % (self.location,tagid,name)
-            c.execute(s,(self.location,tagid,name))
-            # http://stackoverflow.com/questions/19337029/insert-if-not-exists-statement-in-sqlite
-            self.conn.commit()
+        tag = Tag(
+            store = self,
+            location = row[0],
+            tagid = row[1],
+            name = row[2]
+        )
+        return tag
 
-           c.close()
-        return None
-
-    def get_tags(self,name=None):
+    def get_tags(self,name=None,exact=False):
         """Get all tags."""
         tags = []
         c = self.conn.cursor()
         if not name:
             s = "SELECT * FROM tag WHERE location = ?"
             c.execute(s, (self.location,))
+        elif exact:
+            s = "SELECT * FROM tag WHERE location = ? AND name = ?"
+            c.execute(s, (self.location,name))
         else:
-            s = "SELECT * FROM tag WHERE location = ? AND name LIKE = ?"
+            s = "SELECT * FROM tag WHERE location = ? AND name LIKE ?"
             c.execute(s, (self.location,name+"%"))
         rows = c.fetchall()
         for row in rows:
@@ -610,17 +634,19 @@ class YewStore(object):
     def associate_tag(self,uid,tagid):
         """Tag a document."""
         c = self.conn.cursor()
-        s = "INSERT INTO tagdoc VALUES (?,?)"
+        s = "INSERT OR IGNORE INTO tagdoc VALUES (?,?)"
         c.execute(s, (uid,tagid))
+        self.conn.commit()
 
     def dissociate_tag(self,tagid,uid):
         """Untag a document."""
         c = self.conn.cursor()
         s = "DELETE FROM tagdoc WHERE tagid = ? and uid = ?"
         c.execute(s, (uid,tagid))
-        
+        self.conn.commit()
+
     def delete_document(self,doc):
-        """Delete a document and it's associated entities."""
+        """Delete a document and its associated entities."""
 
         #home = expanduser("~")
         #yew_dir = os.path.join(home,'.yew.d')
@@ -992,18 +1018,41 @@ def get_user_email():
     self.url = self.store.get_user_pref('url')
 
 @cli.command()
+def make_db():
+    self.make_db(yew.store.yewdb_path)
+
+@cli.command()
 @click.argument('tagname', required=False)
 @click.argument('docname', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--create','-c',is_flag=True, required=False)
-def tag(tagname,docname,create):
+def tag(tagname,docname,list_docs,create):
     """Manage tags."""
+    tag = None
+    if tagname:
+        tagname = tagname.lower()
     if tagname and create:
-        click.echo( yew.store.get_or_create_tag(tagname) )
+        tag = yew.store.get_or_create_tag(tagname) 
+        click.echo("created: %s %s" % (tag.tagid, tag.name)) 
     elif create and not tagname:
         click.echo("tag name required")
     elif tagname and docname:
-        # associate with doc
-        pass
+        if not tag:
+            tags = yew.store.get_tags(tagname,exact=True)
+        if len(tags) > 0:
+            tag = tags[0]
+        if not tag:
+            click.echo("No tags found")
+            sys.exit(0)
+        docs = get_document_selection(docname,list_docs,multiple=True)
+        if docs and type(docs) == list:
+            for doc in docs:
+                yew.store.associate_tag(doc.uid,tag.tagid)
+                click.echo("%s => %s" % (tag.name, doc.name))
+        elif docs:
+            doc = docs
+            yew.store.associate_tag(doc.uid,tag.tagid)
+            click.echo("%s => %s" % (tag.name, doc.name))
     else:
         # list tags
         tags = yew.store.get_tags(tagname)
