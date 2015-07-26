@@ -26,7 +26,8 @@ import re
 import string
 import difflib
 import re
-#from difflib_data import *
+from jinja2 import Template
+
 
 try:
     import pypandoc
@@ -1337,6 +1338,8 @@ def api():
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
+
+
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
@@ -1358,25 +1361,33 @@ def browse(name,list_docs):
         else:
             if not doc.kind in input_formats:
                 kind = 'md'
+            else:
+                kind = doc.kind
             html = pypandoc.convert(
                 doc.get_path(),
-                'html',
-                format = kind
+                format = kind,
+                to='html'
+
             )
-
-
-
         tmp_dir = yew.store.get_tmp_directory()
         tmp_file = os.path.join(tmp_dir,doc.get_safe_name()+".html")
         with click.open_file('template_0.html','r') as f:
             t = f.read()
-        template = string.Template(t)
-        dest = template.substitute(
-            title=doc.name,
-            content=html,
-            nav=nav
-        )
-        print tmp_file
+
+        template = Template(t)
+        data = {
+            "title":doc.name,
+            "content":html,
+            "nav":nav
+        }
+        dest = template.render(data)
+
+        # template = string.Template(t)
+        # dest = template.substitute(
+        #     title=doc.name,
+        #     content=html,
+        #     nav=nav
+        # )
         f = codecs.open(tmp_file, 'w','utf-8').write(dest)
     click.launch(tmp_file)
 
@@ -1406,8 +1417,8 @@ def convert(name,destination_format, list_docs, formats):
     #click.echo(destination_format)
 
     dest = pypandoc.convert(doc.get_content(),
-                            doc.kind,
-                            destination_format)
+                            format=doc.kind,
+                            to=destination_format)
     click.echo(dest)
     sys.stdout.flush()
 

@@ -3,14 +3,14 @@
 
 <html>
 
-<head>
+  <head>
 
-<title>$title</title>
-<meta charset="utf-8"/>
+    <title>{{ title }}</title>
+    <meta charset="utf-8"/>
 
-<style>
+    <style>
 body {
- margin: 50px;
+margin: 50px;
 }
 p {
 max-width: 500px;
@@ -27,16 +27,16 @@ float:left;
 max-width:900px
 padding: 20px;
 }
-</style>
-</head>
+    </style>
+  </head>
 
-<body>
-<div id="sidebar">
-$nav
-</div>
-<div id="main">
-$content
-</div>
-</body>
-
+  <body>
+    <div id="sidebar">
+      {{ nav }}
+    </div>
+    <div id="main">
+      {{ content }}
+    </div>
+  </body>
+  
 </html>
