@@ -21,6 +21,7 @@ setup(
         StringGenerator==0.1.6
         tzlocal==1.2
         wheel==0.24.0
+        humanize-0.5.1
    ],
     entry_points='''
         [console_scripts]
