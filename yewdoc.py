@@ -608,7 +608,11 @@ class YewStore(object):
         return tag
 
     def get_tags(self,name=None,exact=False):
-        """Get all tags."""
+        """Get all tags and return a list of tag objects.
+
+        If exact is True, the result will have at most one element.
+
+        """
         tags = []
         c = self.conn.cursor()
         if not name:
@@ -630,6 +634,16 @@ class YewStore(object):
             )
             tags.append(tag)
         return tags
+
+    def parse_tags(self, tag_string):
+        """Parse tag_string and return a list of tag objects."""
+        string_tags = tag_string.split(',')
+        tag_list = []
+        for t in string_tags:
+            tags = self.get_tags(t,exact=True)
+            if len(tags) > 0:
+                tag_list.append(tags[0])
+        return tag_list
 
     def associate_tag(self,uid,tagid):
         """Tag a document."""
@@ -849,15 +863,23 @@ class YewStore(object):
         c.close()
         return docs
 
-    def get_docs(self):
+    def get_docs(self, tag_objects=[]):
         """Get all docs using the index. 
 
         Does not get remote.
 
+        tags is a list of tagid's. These must have been 
+        put together correctly before passing them here.
+
         """
-        username = self.get_global('username')
+        where_tags = ''
+        if tag_objects:
+            tags = ",".join(["'"+tag.tagid+"'" for tag in tag_objects])
+            where_tags = " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
         doc = None
-        sql = "select uid,name,location,kind FROM document"
+        sql = "select uid,name,location,kind FROM document "
+        if where_tags:
+            sql += where_tags
         c = self.conn.cursor()
         c.execute(sql)
         rows = c.fetchall()
@@ -1026,8 +1048,14 @@ def make_db():
 @click.argument('docname', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
 @click.option('--create','-c',is_flag=True, required=False)
-def tag(tagname,docname,list_docs,create):
-    """Manage tags."""
+@click.option('--untag','-u',is_flag=True, required=False, help="Remove a tag association from document(s)")
+def tag(tagname,docname,list_docs,create,untag):
+    """Manage tags.
+
+    Use this command to create tags, associate them with documents and
+    remove tags.
+
+    """
     tag = None
     if tagname:
         tagname = tagname.lower()
@@ -1047,17 +1075,25 @@ def tag(tagname,docname,list_docs,create):
         docs = get_document_selection(docname,list_docs,multiple=True)
         if docs and type(docs) == list:
             for doc in docs:
-                yew.store.associate_tag(doc.uid,tag.tagid)
-                click.echo("%s => %s" % (tag.name, doc.name))
+                if untag:
+                    yew.store.dissociate_tag(doc.uid,tag.tagid)
+                    click.echo("%s => %s removed" % (tag.name, doc.name))
+                else:
+                    yew.store.associate_tag(doc.uid,tag.tagid)
+                    click.echo("%s => %s" % (tag.name, doc.name))
         elif docs:
             doc = docs
-            yew.store.associate_tag(doc.uid,tag.tagid)
-            click.echo("%s => %s" % (tag.name, doc.name))
-    else:
-        # list tags
-        tags = yew.store.get_tags(tagname)
-        for tag in tags:
-            click.echo(tag.name)
+            if untag:
+                yew.store.associate_tag(doc.uid,tag.tagid)
+                click.echo("%s => %s" % (tag.name, doc.name))
+            else:
+                yew.store.dissociate_tag(doc.uid,tag.tagid)
+                click.echo("%s => %s removed" % (tag.name, doc.name))
+        else:
+            # list tags
+            tags = yew.store.get_tags(tagname)
+            for tag in tags:
+                click.echo(tag.name)
 
 @cli.command()
 @click.argument('name', required=False)
@@ -1251,7 +1287,8 @@ def find(spec, string_only, insensitive):
 @click.option('--info','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
 @click.option('--humanize','-h',is_flag=True, required=False)
-def ls(name,info,remote, humanize):
+@click.option('--tags','-t',required=False)
+def ls(name,info,remote, humanize, tags):
     """List documents."""
 
     if remote:
@@ -1260,11 +1297,13 @@ def ls(name,info,remote, humanize):
             click.echo("%s %s" % (doc['uid'], doc['title']))
 
         sys.exit(0)
-
+    tag_objects = []
+    if tags:
+        tag_objects = yew.store.parse_tags(tags)
     if name:
         docs = yew.store.search_names(name)
     else:
-        docs = yew.store.get_docs()
+        docs = yew.store.get_docs(tag_objects=tag_objects)
     for doc in docs:
         if info:
             click.echo("   ", nl=False)
@@ -1285,7 +1324,7 @@ def ls(name,info,remote, humanize):
         click.echo(doc.name, nl=False)
         if info:
             click.echo("   ", nl=False)
-            click.echo(slugify(doc.name), nl=False)
+            #click.echo(slugify(doc.name), nl=False)
         click.echo('')
         
 @cli.command()
