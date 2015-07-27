@@ -24,9 +24,16 @@ import webbrowser
 import tempfile
 import re
 import string
-import pypandoc
 import difflib
-#from difflib_data import *
+import re
+import humanize as h
+from jinja2 import Template
+
+
+try:
+    import pypandoc
+except:
+    print "pypandoc won't load. convert cmd will not work"
 
 # suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
@@ -41,6 +48,24 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+def is_binary_string():
+    textchars = bytearray([7,8,9,10,12,13,27]) + bytearray(range(0x20, 0x100))
+    return bool(bytes.translate(None, textchars))
+
+def is_binary_file(fullpath):
+    return is_binary_string(open(fullpath, 'rb').read(1024))
+
+def slugify(value):
+    """Stolen from Django: convert name. 
+    Normalizes string, converts to lowercase, removes non-alpha characters,
+    and converts spaces to hyphens.
+    """
+    import unicodedata
+    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
+    value = unicode(re.sub('[^\w\s-]', '', value).strip().lower())
+    #... re.sub('[-\s]+', '-', value)
+    value = '-'.join(value.split()).lower()
+    return value
 
 def err():
     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -51,6 +76,11 @@ def is_uuid(uid):
     """Return non-None if uid is a uuid."""
     uuidregex = re.compile('[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z', re.I)
     return uuidregex.match(uid)
+
+def is_short_uuid(s):
+    """Return non-None if uid is a uuid."""
+    uuid_short_regex = re.compile('[0-9a-f]{8}\Z', re.I)
+    return uuid_short_regex.match(s)
 
 def delete_directory(folder):
     """Delete directory p and all sub directories and files."""
@@ -80,6 +110,26 @@ def modification_date(path):
     t = os.path.getmtime(path)
     return to_utc(datetime.datetime.fromtimestamp(t))
 
+class Tag(object):
+    def __init__(self, store,location,tagid,name):
+        self.store = store
+        self.location = location
+        self.tagid = tagid
+        self.name = name
+
+    def __str__(self):
+        return str(self.__unicode__())
+
+    def __unicode__(self):
+        return self.name
+
+
+class TagDoc(object):
+    def __init__(self,store,tagid,uid):
+        self.store = store
+        self.tagid = tagid
+        self.uid = uid
+
 class Document(object):
     """Describes a document."""
     def __init__(self,store,uid,name,location,kind):
@@ -89,8 +139,17 @@ class Document(object):
         self.location = location
         self.kind = kind
         self.path = os.path.join(store.get_storage_directory(),location,uid,"doc."+kind)
+        # TODO: lazy load
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(),location,uid)
+
+    def short_uid(self):
+        """Return first part of uuid."""
+        return self.uid.split('-')[0]
+
+    def get_safe_name(self):
+        """Return safe name."""
+        return slugify(self.name)
 
     def get_digest(self):
         return get_sha_digest(self.get_content())
@@ -191,7 +250,8 @@ class Remote(object):
 
     def check_data(self):
         if not self.token or not self.url:
-            raise RemoteException("Token and url required to reach server. Check user prefs.")
+            raise RemoteException("""Token and url required to reach server. Check user prefs. 
+            Try: 'yd configure'""")
 
     def get_headers(self):
         """Get headers used for remote calls."""        
@@ -206,6 +266,10 @@ class Remote(object):
     def post(self,endpoint,data={}):
         """Perform post on remote."""
         url = "%s/api/%s/" % (self.url,endpoint)
+        return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
+
+    def unauthenticated_post(self,endpoint,data={}):
+        url = "%s/%s/" % (self.url,endpoint)
         return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
     def delete(self,endpoint):
@@ -225,7 +289,8 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            return self.post("register_user",data)
+            url = "%s/doc/register_user/" % self.url
+            return requests.post(url, data=data, verify=self.verify)
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
@@ -239,6 +304,23 @@ class Remote(object):
         except ConnectionError:
             click.echo("Could not connect to server")
             self.offline = True
+            return None
+        except Exception as e:
+            click.echo(str(e))
+
+    def unauthenticated_ping(self):
+        """Call remote ping() method."""
+        if self.offline:
+            raise OfflineException()
+        try:
+            url = "%s/doc/unauthenticated_ping/" % (self.url)
+            return requests.get(url, headers=self.headers, verify=self.verify)
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            self.offline = True
+            return None
+        except Exception as e:
+            click.echo(str(e))
             return None
 
     def api(self):
@@ -264,6 +346,8 @@ class Remote(object):
             data = json.loads(r.content)
             if 'digest' in data:
                 return data
+        elif r and r.status_code == 404:
+            return None
         return None
 
     def fetch(self,uid):
@@ -289,7 +373,8 @@ class Remote(object):
         r = yew.remote.get("document")
         try:
             response = json.loads(r.content)
-            return response['results']
+            #print r.content
+            return response
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
@@ -328,6 +413,9 @@ class Remote(object):
         if not rexists:
             return Remote.STATUS_DOES_NOT_EXIST
 
+        if 'deleted' in rexists:
+            return Remote.STATUS_REMOTE_DELETED
+
         if rexists and rexists['digest'] == doc.get_digest():
             return Remote.STATUS_REMOTE_SAME
 
@@ -354,7 +442,8 @@ class Remote(object):
         status = self.doc_status(doc.uid)
 
         if status == Remote.STATUS_REMOTE_SAME \
-           or status == Remote.STATUS_REMOTE_NEWER:
+           or status == Remote.STATUS_REMOTE_NEWER \
+           or status == Remote.STATUS_REMOTE_DELETED:
             return status
         
         data = doc.serialize()
@@ -407,12 +496,13 @@ class YewStore(object):
 
     yewdb_path = None
     conn = None
-
+    
     global_preferences = [
         "username",
         "offline",
     ]
 
+    # mainly preferences required to connect to server
     user_preferences = [
         "location.default.url",
         "location.default.email",
@@ -436,13 +526,13 @@ class YewStore(object):
         home = expanduser("~")
         yew_dir = os.path.join(home,'.yew.d')
         if not os.path.exists(yew_dir):
-            self.set_global('offline',True)
+        #     self.put_global('offline',True)
             os.makedirs(yew_dir)
         self.yewdb_path = os.path.join(yew_dir,'yew.db')
         self.conn = self.make_db(self.yewdb_path)
         self.username = self.get_global('username','yewser')
         self.offline = self.get_global('offline',False)
-
+        self.location = 'default'
 
     def get_storage_directory(self):
         """Return path for storage."""
@@ -451,22 +541,129 @@ class YewStore(object):
         yew_dir = os.path.join(home,'.yew.d')
         return yew_dir
 
+    def get_tmp_directory(self):
+        """Return path for temporary storage."""
+        #home = expanduser("~")
+        #tmp_dir = os.path.join(home,'.yew.d','tmp')
+        tmp_dir = os.path.join(self.get_storage_directory(),'tmp')
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+        return tmp_dir
+
     def make_db(self,path):
         """Create the tables if it does not exist and get or create tables."""
         conn = sqlite3.connect(path)
         c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS global_prefs (key, value)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS user_prefs (username, key, value)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS user_project_prefs (username, project, key, value)''')
-        c.execute('''CREATE TABLE IF NOT EXISTS document (uid,name,location,kind,digest)''')
+        sql = '''CREATE TABLE IF NOT EXISTS global_prefs (key, value); '''
+        c.execute(sql)
+
+        sql = '''CREATE TABLE IF NOT EXISTS user_prefs (username, key, value);'''
+        c.execute(sql)
+        
+        sql = '''CREATE TABLE IF NOT EXISTS user_project_prefs (username, project, key, value);'''
+        c.execute(sql)
+
+        sql = '''CREATE TABLE IF NOT EXISTS document (uid,name,location,kind,digest);'''
+        c.execute(sql)
+
+        sql = '''
+        CREATE TABLE IF NOT EXISTS tag (
+            location NOT NULL,
+            tagid NOT NULL,
+            name NOT NULL,
+            PRIMARY KEY (location, tagid),
+            UNIQUE(location,name)
+        );'''
+        c.execute(sql)
+
+        sql = '''CREATE TABLE IF NOT EXISTS tagdoc (
+            uid NOT NULL,
+            tagid NOT NULL,
+            FOREIGN KEY(uid) REFERENCES document(uid),
+            FOREIGN KEY(tagid) REFERENCES document(tagid),
+            UNIQUE(uid,tagid)
+        );'''
+        c.execute(sql)
+
         conn.commit()
         return conn
 
-    def delete_document(self,doc):
-        """Delete a document and it's associated entities."""
+    def get_or_create_tag(self,name):
+        """Create a new tag. Make sure it is unique."""
+        c = self.conn.cursor()
+        tagid = SG("#[\l\d]{8}").render()
+        s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
+        # print "INSERT OR IGNORE INTO tag VALUES ('%s','%s','%s')" % (self.location,tagid,name)
+        c.execute(s,(self.location,tagid,name))
+        self.conn.commit()
+        s = "SELECT * FROM tag WHERE tagid = ?"
+        c.execute(s, (tagid,))
+        row = c.fetchone()
+        tag = Tag(
+            store = self,
+            location = row[0],
+            tagid = row[1],
+            name = row[2]
+        )
+        return tag
 
-        home = expanduser("~")
-        yew_dir = os.path.join(home,'.yew.d')
+    def get_tags(self,name=None,exact=False):
+        """Get all tags and return a list of tag objects.
+
+        If exact is True, the result will have at most one element.
+
+        """
+        tags = []
+        c = self.conn.cursor()
+        if not name:
+            s = "SELECT * FROM tag WHERE location = ?"
+            c.execute(s, (self.location,))
+        elif exact:
+            s = "SELECT * FROM tag WHERE location = ? AND name = ?"
+            c.execute(s, (self.location,name))
+        else:
+            s = "SELECT * FROM tag WHERE location = ? AND name LIKE ?"
+            c.execute(s, (self.location,name+"%"))
+        rows = c.fetchall()
+        for row in rows:
+            tag = Tag(
+                store = self,
+                location = row[0],
+                tagid = row[1],
+                name = row[2]
+            )
+            tags.append(tag)
+        return tags
+
+    def parse_tags(self, tag_string):
+        """Parse tag_string and return a list of tag objects."""
+        string_tags = tag_string.split(',')
+        tag_list = []
+        for t in string_tags:
+            tags = self.get_tags(t,exact=True)
+            if len(tags) > 0:
+                tag_list.append(tags[0])
+        return tag_list
+
+    def associate_tag(self,uid,tagid):
+        """Tag a document."""
+        c = self.conn.cursor()
+        s = "INSERT OR IGNORE INTO tagdoc VALUES (?,?)"
+        c.execute(s, (uid,tagid))
+        self.conn.commit()
+
+    def dissociate_tag(self,tagid,uid):
+        """Untag a document."""
+        c = self.conn.cursor()
+        s = "DELETE FROM tagdoc WHERE tagid = ? and uid = ?"
+        c.execute(s, (uid,tagid))
+        self.conn.commit()
+
+    def delete_document(self,doc):
+        """Delete a document and its associated entities."""
+
+        #home = expanduser("~")
+        #yew_dir = os.path.join(home,'.yew.d')
         # remove record
         c = self.conn.cursor()
         sql = "DELETE FROM document WHERE uid = ?"
@@ -475,7 +672,7 @@ class YewStore(object):
         # remove files
         path = doc.directory_path
         # sanity check
-        if not path.startswith(yew_dir): 
+        if not path.startswith(self.get_storage_directory()): 
             raise Exception("Path for deletion is wrong: %s" % path)
         shutil.rmtree(path)
 
@@ -539,14 +736,14 @@ class YewStore(object):
         """Set a global preference. Must be in class var global_preferences."""
         if not k in YewStore.global_preferences:
             raise ValueError("Unknown global preference: %s. Choices are: %s" % (k,", ".join(YewStore.global_preferences)))
-        print "put_global (%s,%s)" % (k,v)
+        #print "put_global (%s,%s)" % (k,v)
         if not k or not v:
             print "not storing nulls"
             return # don't store null values
         c = self.conn.cursor()
         if self.get_global(k):
             sql = "UPDATE global_prefs SET value = ? WHERE key = ?"
-            print "UPDATE global_prefs SET value = '%s' WHERE key = '%s'" % (v,k)
+            #print "UPDATE global_prefs SET value = '%s' WHERE key = '%s'" % (v,k)
             c.execute(sql,(v,k,))
             click.echo("updated global: %s = %s" % (k, self.get_global(k)))
         else:
@@ -648,14 +845,17 @@ class YewStore(object):
         return doc
 
 
-    def search_names(self,name_frag):
-        """Get a doc via reged on name."""
-
-        username = self.get_global('username')
-        doc = None
-        sql = "select uid,name,location,kind FROM document WHERE name LIKE ?"
+    def search_names(self, name_frag, exact=False):
+        """Get a docs with LIKE unless matching exactly."""
         c = self.conn.cursor()
-        c.execute(sql,("%"+name_frag+"%",))
+
+        if not exact:
+            sql = "select uid,name,location,kind FROM document WHERE name LIKE ?" 
+            c.execute(sql,("%"+name_frag+"%",))
+        else:
+            sql = "select uid,name,location,kind FROM document WHERE name = ?" 
+            c.execute(sql,(name_frag,))
+
         rows = c.fetchall()
         docs = []
         for row in rows:
@@ -663,15 +863,23 @@ class YewStore(object):
         c.close()
         return docs
 
-    def get_docs(self):
+    def get_docs(self, tag_objects=[]):
         """Get all docs using the index. 
 
         Does not get remote.
 
+        tags is a list of tagid's. These must have been 
+        put together correctly before passing them here.
+
         """
-        username = self.get_global('username')
+        where_tags = ''
+        if tag_objects:
+            tags = ",".join(["'"+tag.tagid+"'" for tag in tag_objects])
+            where_tags = " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
         doc = None
-        sql = "select uid,name,location,kind FROM document"
+        sql = "select uid,name,location,kind FROM document "
+        if where_tags:
+            sql += where_tags
         c = self.conn.cursor()
         c.execute(sql)
         rows = c.fetchall()
@@ -725,6 +933,18 @@ class YewStore(object):
             return None
         return Document(self,row[0],row[1],row[2],row[3])
 
+    def get_short(self,s):
+        """Get document but with abbreviated uid."""
+        if not is_short_uuid(s):
+            raise Exception("Not a valid short uid.")
+        sql = "select uid FROM document WHERE uid LIKE ?"
+        c = self.conn.cursor()
+        c.execute(sql,(s+"%",))
+        row = c.fetchone()
+        if not row:
+            return None
+        return self.get(row[0]) # should be full uid
+
     def touch(self,path):
         with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
@@ -774,15 +994,18 @@ class YewCLI(object):
         self.store = YewStore()
         self.remote = Remote(self.store)
 
-    def status(self):
-        """Print status."""
-        click.echo("status")
-
 
 @click.group()
 @click.option('--user', help="User name", required=False)
 def cli(user):
     pass
+
+@cli.command()
+def status():
+    """Print info about current setup."""
+    click.echo("User     : %s" % yew.store.username)
+    click.echo("Storage  : %s" % yew.store.get_storage_directory())
+    click.echo("Offline  : %s" % yew.store.offline)
 
 @cli.command()
 @click.argument('name', required=False)
@@ -808,7 +1031,7 @@ def create(name,location,kind):
     doc = yew.store.create_document(name,location,kind)
 
     click.echo("created document: %s" % doc.uid)
-    click.edit(editor='emacs', require_save=True, filename=doc.path)
+    click.edit(require_save=True, filename=doc.path)
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
 
 
@@ -816,6 +1039,61 @@ def get_user_email():
     """Get user email from prefs or stdin."""
     self.url = self.store.get_user_pref('url')
 
+@cli.command()
+def make_db():
+    self.make_db(yew.store.yewdb_path)
+
+@cli.command()
+@click.argument('tagname', required=False)
+@click.argument('docname', required=False)
+@click.option('--list_docs','-l',is_flag=True, required=False)
+@click.option('--create','-c',is_flag=True, required=False)
+@click.option('--untag','-u',is_flag=True, required=False, help="Remove a tag association from document(s)")
+def tag(tagname,docname,list_docs,create,untag):
+    """Manage tags.
+
+    Use this command to create tags, associate them with documents and
+    remove tags.
+
+    """
+    tag = None
+    if tagname:
+        tagname = tagname.lower()
+    if tagname and create:
+        tag = yew.store.get_or_create_tag(tagname) 
+        click.echo("created: %s %s" % (tag.tagid, tag.name)) 
+    elif create and not tagname:
+        click.echo("tag name required")
+    elif tagname and docname:
+        if not tag:
+            tags = yew.store.get_tags(tagname,exact=True)
+        if len(tags) > 0:
+            tag = tags[0]
+        if not tag:
+            click.echo("No tags found")
+            sys.exit(0)
+        docs = get_document_selection(docname,list_docs,multiple=True)
+        if docs and type(docs) == list:
+            for doc in docs:
+                if untag:
+                    yew.store.dissociate_tag(doc.uid,tag.tagid)
+                    click.echo("%s => %s removed" % (tag.name, doc.name))
+                else:
+                    yew.store.associate_tag(doc.uid,tag.tagid)
+                    click.echo("%s => %s" % (tag.name, doc.name))
+        elif docs:
+            doc = docs
+            if untag:
+                yew.store.associate_tag(doc.uid,tag.tagid)
+                click.echo("%s => %s" % (tag.name, doc.name))
+            else:
+                yew.store.dissociate_tag(doc.uid,tag.tagid)
+                click.echo("%s => %s removed" % (tag.name, doc.name))
+    else:
+        # list tags
+        tags = yew.store.get_tags(tagname)
+        for tag in tags:
+            click.echo(tag.name)
 
 @cli.command()
 @click.argument('name', required=False)
@@ -916,6 +1194,9 @@ def get_document_selection(name,list_docs,multiple=False):
     if name and is_uuid(name):
         return yew.store.get(name)
 
+    if name and is_short_uuid(name):
+        return yew.store.get_short(name)
+
     if not name and not list_docs:
         docs = yew.store.get_recent('yewser')
         return document_menu(docs,multiple)
@@ -934,11 +1215,31 @@ def get_document_selection(name,list_docs,multiple=False):
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs','-l',is_flag=True, required=False)
-@click.option('--open_file','-o',is_flag=True, required=False, help="Open the file in your host operating system.")
+@click.option('--open-file','-o',is_flag=True, required=False, help="Open the file in your host operating system.")
 def edit(name,list_docs,open_file):
-    """Edit a document."""
+    """Edit a document.
+
+    Set your $EDITOR environment variable to determine what editor
+    will handle the file. 
+
+    When the editor is closed, the file will sync to the server
+    (if not working offline). 
+
+    --open-file will send the the document to the host operating 
+    system for it to decide how to open the file. Since using this 
+    option means the editor is not a child process, 
+    you need to manually sync with remote to push changes. 
+
+    """
 
     doc = get_document_selection(name,list_docs)
+
+    #if doc is null, we didn't find one, ask if we should create:
+    if not doc:
+        if click.confirm("Couldn't find that document, shall we create it?"):
+            doc = yew.store.create_document(name,location='default', kind='md')
+        else:
+            sys.exit(0)
 
     if open_file: 
         # send to host os to ask it how to open file
@@ -952,35 +1253,80 @@ def edit(name,list_docs,open_file):
     yew.store.update_recent('yewser',doc)
 
 @cli.command()
+@click.argument('spec', required=True)
+@click.option('--string-only','-s',is_flag=True, required=False)
+@click.option('--insensitive','-i',is_flag=True, required=False)
+#@click.option('--remote','-r',is_flag=True, required=False)
+def find(spec, string_only, insensitive):
+    """Search for spec in contents of docs.
+
+    spec is a regular expression unless string-only is selected 
+    in which case a simple string match is used.
+
+    """
+
+    docs = yew.store.get_docs()
+    
+    for doc in docs:
+        found = False
+        if string_only:
+            if not insensitive:
+                if spec in doc.get_content():
+                    found = True
+            else:
+                if spec.lower() in doc.get_content().lower():
+                    found = True
+        elif re.search(spec, doc.get_content()):
+            found = True
+
+        if found:
+            click.echo(doc.name)
+
+@cli.command()
 @click.argument('name', required=False)
 @click.option('--info','-l',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
-def ls(name,info,remote):
+@click.option('--humanize','-h',is_flag=True, required=False)
+@click.option('--tags','-t',required=False)
+def ls(name,info,remote, humanize, tags):
     """List documents."""
 
     if remote:
-        r = yew.remote.get("document")
-        response = json.loads(r.content)
-        for doc in response['results']:
-            print doc['uid'], doc['title']
-        sys.exit(0)
+        response = yew.remote.get_docs()
+        for doc in response:
+            click.echo("%s %s" % (doc['uid'], doc['title']))
 
+        sys.exit(0)
+    tag_objects = []
+    if tags:
+        tag_objects = yew.store.parse_tags(tags)
     if name:
         docs = yew.store.search_names(name)
     else:
-        docs = yew.store.get_docs()
+        docs = yew.store.get_docs(tag_objects=tag_objects)
     for doc in docs:
         if info:
             click.echo("   ", nl=False)
-            click.echo(doc.uid, nl=False)
+            click.echo(doc.short_uid(), nl=False)
             click.echo("   ", nl=False)
-            click.echo(doc.kind, nl=False)
+            click.echo(doc.kind.rjust(5), nl=False)
             click.echo("   ", nl=False)
-            click.echo(doc.get_size(), nl=False)
+            if humanize:
+                click.echo(h.naturalsize(doc.get_size()).rjust(10), nl=False)
+            else:
+                click.echo(str(doc.get_size()).rjust(10), nl=False)
+            click.echo("   ", nl=False)
+            if humanize:
+                click.echo(h.naturaltime(doc.get_last_updated_utc().replace(tzinfo=None)).rjust(15), nl=False)
+            else:
+                click.echo(doc.get_last_updated_utc().replace(tzinfo=None), nl=False)
             click.echo("   ", nl=False)
         click.echo(doc.name, nl=False)
+        if info:
+            click.echo("   ", nl=False)
+            #click.echo(slugify(doc.name), nl=False)
         click.echo('')
-
+        
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--force','-f',is_flag=True, required=False)
@@ -1020,6 +1366,8 @@ def sync(name,force):
             click.echo("push new doc to remote: %s %s" % (doc.uid,doc.name))
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
+        elif c == Remote.STATUS_REMOTE_DELETED:
+            click.echo("remote was deleted: cannot sync to remote")
         else:
             raise Exception("Invalid remote status: %s for %s" % (c,str(doc)))
 
@@ -1041,7 +1389,12 @@ def sync(name,force):
 @click.option('--force','-f',is_flag=True, required=False)
 @click.option('--remote','-r',is_flag=True, required=False)
 def delete(name,list_docs,force,remote):
-    """Delete a document."""
+    """Delete a document.
+
+    To delete a remote document, it needs to be local. So, 
+    you may need to sync it from remote before deleting it. 
+
+    """
 
     docs = get_document_selection(name,list_docs,multiple=True)
     if not docs:
@@ -1084,7 +1437,7 @@ def diff_content(doc1,doc2):
     #d = difflib.Differ()
     #diff = d.compare(doc1,doc2)
     diff = difflib.ndiff(doc1,doc2)
-    print '\n'.join(list(diff))
+    click.echo('\n'.join(list(diff)))
 
 @cli.command()
 @click.argument('name', required=False)
@@ -1107,10 +1460,11 @@ def describe(name,list_docs,remote,diff):
     if diff and not status == Remote.STATUS_REMOTE_SAME \
        and not Remote.STATUS_NO_CONNECTION:
         remote_doc = yew.remote.fetch(doc.uid)
-        print diff_content(
+        s = diff_content(
             remote_doc['content'].rstrip().splitlines(),
             doc.get_content().rstrip().splitlines()
         )
+        click.echo(s)
 
 @cli.command()
 def push():
@@ -1177,7 +1531,7 @@ def kind(name,list_docs):
         click.echo("%s" % (d))
     kind = click.prompt('Select the new document kind ', type=str)
     #kind = yew.store.doc_kinds[v]
-    print "Changing document kind to: ", kind
+    click.echo("Changing document kind to: %s" % kind)
     doc = yew.store.change_doc_kind(doc,kind)
     yew.remote.push_doc(doc)
 
@@ -1202,9 +1556,11 @@ def api():
         sys.exit(1)
     if r.status_code == 200:
         # content should be server time
-        print r.content
+        click.echo(r.content)
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
+
+
 
 @cli.command()
 @click.argument('name', required=False)
@@ -1212,18 +1568,49 @@ def api():
 def browse(name,list_docs):
     """Convert to html and attempt to load in web browser."""
 
-    doc = get_document_selection(name,list_docs)
-    html = markdown.markdown(doc.get_content())
-    click.echo(html)
-    tmp_file = os.path.join(tempfile.gettempdir(),SG("[\w]{20}.html").render())
+    input_formats = ['md','rst']
+    #doc = get_document_selection(name,list_docs)
+    docs = yew.store.get_docs()
+    nav = ''
+    for doc in docs:
+        tmp_dir = yew.store.get_tmp_directory()
+        tmp_file = os.path.join(tmp_dir,doc.get_safe_name()+".html")
+        a = '<a href="file://%s">%s</a><br/>\n' % (tmp_file,doc.name)
+        nav += a
+    for doc in docs:
+        if doc.kind == 'md':
+            html = markdown.markdown(doc.get_content())
+        else:
+            if not doc.kind in input_formats:
+                kind = 'md'
+            else:
+                kind = doc.kind
+            html = pypandoc.convert(
+                doc.get_path(),
+                format = kind,
+                to='html'
 
-    with click.open_file('template_0.html','r') as f:
-        t = f.read()
-    template = string.Template(t)
-    dest = template.substitute(title=doc.name,
-                               content=html)
+            )
+        tmp_dir = yew.store.get_tmp_directory()
+        tmp_file = os.path.join(tmp_dir,doc.get_safe_name()+".html")
+        with click.open_file('template_0.html','r') as f:
+            t = f.read()
 
-    f = codecs.open(tmp_file, 'w','utf-8').write(dest)
+        template = Template(t)
+        data = {
+            "title":doc.name,
+            "content":html,
+            "nav":nav
+        }
+        dest = template.render(data)
+
+        # template = string.Template(t)
+        # dest = template.substitute(
+        #     title=doc.name,
+        #     content=html,
+        #     nav=nav
+        # )
+        f = codecs.open(tmp_file, 'w','utf-8').write(dest)
     click.launch(tmp_file)
 
 
@@ -1247,26 +1634,29 @@ def convert(name,destination_format, list_docs, formats):
         sys.exit(0)
 
     doc = get_document_selection(name,list_docs)
-    print doc.name
-    print doc.kind
-    print destination_format
+    #click.echo(doc.name)
+    #click.echo(doc.kind)
+    #click.echo(destination_format)
 
     dest = pypandoc.convert(doc.get_content(),
-                            doc.kind,
-                            destination_format)
+                            format=doc.kind,
+                            to=destination_format)
     click.echo(dest)
     sys.stdout.flush()
 
 
 @cli.command()
 @click.argument('path', required=True)
-@click.option('--kind','-k', default="txt", required=False)
-def take(path,kind):
-    """Create a document from a file.
+@click.option('--kind','-k', required=False)
+@click.option('--force','-f', is_flag=True, required=False)
+def take(path,kind,force):
+    """Import a file as a document.
 
     The base filename becomes the document title.
 
     Should be a text type, but we leave that to user.
+
+    --force will cause a similarly titled document to be overwritten
 
     """
     if not os.path.exists(path) or not os.path.isfile(path):
@@ -1277,10 +1667,33 @@ def take(path,kind):
     with click.open_file(path,'r') as f:
         content = f.read()
 
+    filename, file_extension = os.path.splitext(path)
+
+    if not kind:
+        # get the extension of the file without dot
+        if '.' in path:
+            kind = path.split('.')[-1]
     if not kind:
         kind = yew.store.get_user_pref('default_doc_type')
+    if not kind:
+        # because the user pref might be null
+        kind = "md"
 
     title = os.path.splitext(path)[0]
+    # check if we have one with this title
+    # the behaviour we want is for the user to continuously 
+    # ingest the same file that might be updated out-of-band
+    # TODO: handle multiple titles of same name
+    docs = yew.store.search_names(title, exact=True)
+    if docs:
+        if len(docs) == 1:
+            if not force:
+                click.echo("A document with this title exists already")
+            if force or click.confirm("Overwrite existing document: %s ?" % docs[0].name):
+                docs[0].put_content(unicode(content))
+                yew.remote.push_doc(docs[0])
+                sys.exit(0)
+
     doc = yew.store.create_document(title,'default',kind)
     doc.put_content(unicode(content))
     yew.remote.push_doc(doc)
@@ -1319,7 +1732,8 @@ def _configure():
     Skip secret things like tokens and passwords.
 
     """
-
+    # the preferences need to be in the form:
+    # location.default.username
     for pref in yew.store.user_preferences:
         if 'token' in pref or 'password' in pref:
             continue
@@ -1331,43 +1745,43 @@ def _configure():
         yew.store.put_user_pref(pref,value)
 
 @cli.command()
+def configure():
+    """Get configuration information from user."""
+    _configure()
+
+
+@cli.command()
 def register():
     """Try to get a user account on remote."""
 
-    # make sure we have a connection to the server
-    r = yew.remote.ping()
-    if not r:
+    # first make sure we are configured
+    #_configure()
+
+    # next make sure we have a connection to the server
+    if not yew.remote.unauthenticated_ping():
         click.echo("Could not connect")
         sys.exit(1)
-
-    # first make sure we are configured
-    _configure()
 
     username = yew.store.get_user_pref("location.default.username")
     email = yew.store.get_user_pref("location.default.email")
     first_name = yew.store.get_user_pref("location.default.first_name")
-    first_name = yew.store.get_user_pref("location.default.last_name")
+    last_name = yew.store.get_user_pref("location.default.last_name")
     p = SG("[\w\d]{12}").render()
     password = click.prompt("Enter a new password or accept the default ", default=p, type=str)
-    r = yew.remote.register_user({
+    r = yew.remote.register_user(data= {
         "username":username,
         "email":email,
         "password":password,
         "first_name":first_name,
         "last_name":last_name,
     })
-    click.echo("status code: %s" % r.status_code)
-    token = json.loads(r.content)
-    click.echo("response: %s" %token)
-    if r.status_code == 200:
-        yew.store.put_user_pref("location.default.token",token)
-
-
-@cli.command()
-def configure():
-    """Get configuration information from user."""
-    _configure()
-
+    if r.status_code == 200:        
+        data = json.loads(r.content)
+        yew.store.put_user_pref("location.default.token",data['token'])
+    else:
+        click.echo("Something went wrong")
+        click.echo("status code: %s" % r.status_code)
+        click.echo("response: %s" % r.content)
 
 
 @cli.command()
