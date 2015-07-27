@@ -17,5 +17,7 @@ if [ ! -f "venv" ]; then
     virtualenv venv
 fi
 echo "activating virtual env"
+
 source venv/bin/activate
-pip install --editable .
+
+sudo pip install --editable .
