@@ -152,37 +152,3 @@ location.default.last_name = Wolf
 location.default.token = fe0be94826b451bba72j54tjnwlr2jrn2o5cd9b
 ```
 
-```
-$ yd
-Usage: yd [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  --user TEXT  User name
-  --help       Show this message and exit.
-
-Commands:
-  api          Get API of the server.
-  attach       Take a file and put into media folder.
-  browse       Convert to html and attempt to load in web...
-  show         Send contents of document to stdout.
-  configure    Get configuration information from user.
-  convert      Convert to destination_format and print to...
-  create       Create a new document.
-  delete       Delete a document.
-  edit         Edit a document.
-  global_pref  Show or set global preferences.
-  head         Send start of document to stdout.
-  kind         Change kind of document.
-  ls           List documents.
-  ping         Ping server.
-  push         Push all documents to the server.
-  register     Try to get a user account on remote.
-  rename       Send contents of document to stdout.
-  describe     Show document details.
-  sync         Pushes local docs and pulls docs from remote.
-  tail         Send end of document to stdout.
-  take         Create a document from a file.
-  user_pref    Show or set global preferences.
-```
-
-
