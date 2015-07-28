@@ -554,16 +554,46 @@ class YewStore(object):
         """Create the tables if it does not exist and get or create tables."""
         conn = sqlite3.connect(path)
         c = conn.cursor()
-        sql = '''CREATE TABLE IF NOT EXISTS global_prefs (key, value); '''
+        sql = '''
+        CREATE TABLE IF NOT EXISTS global_prefs (
+           key NOT NULL, 
+           value NOT NULL
+        ); 
+        '''
         c.execute(sql)
 
-        sql = '''CREATE TABLE IF NOT EXISTS user_prefs (username, key, value);'''
+        sql = '''CREATE TABLE IF NOT EXISTS user_prefs (
+           username NOT NULL, 
+           key NOT NULL, 
+           value NOT NULL
+        );'''
         c.execute(sql)
         
-        sql = '''CREATE TABLE IF NOT EXISTS user_project_prefs (username, project, key, value);'''
+        sql = '''CREATE TABLE IF NOT EXISTS user_project_prefs (
+           username NOT NULL, 
+           project NOT NULL, 
+           key NOT NULL, 
+           value NOT NULL
+        );'''
         c.execute(sql)
 
-        sql = '''CREATE TABLE IF NOT EXISTS document (uid,name,location,kind,digest);'''
+        sql = '''CREATE TABLE IF NOT EXISTS document (
+           uid NOT NULL,
+           name NOT NULL,
+           location NOT NULL,
+           kind NOT NULL,
+           digest,
+           folder_id,
+           FOREIGN KEY(folderid) REFERENCES folder(folder_id)
+        );'''
+        c.execute(sql)
+
+        sql = '''CREATE TABLE IF NOT EXISTS folder (
+           folderid,
+           parentid ,
+           name NOT NULL,
+           FOREIGN KEY(parentid) REFERENCES folder(folderid)
+        );'''
         c.execute(sql)
 
         sql = '''
@@ -1102,7 +1132,7 @@ def tag(tagname,docname,list_docs,create,untag):
 def global_pref(name,value):
     """Show or set global preferences.
 
-    No name for a preference will show all preferences.
+    No name for preference will show all preferences.
     Providing a value will set to that value.
 
     """
@@ -1665,8 +1695,10 @@ def take(path,kind,force):
         sys.exit(1)
 
     # slurp file
-    with click.open_file(path,'r') as f:
+    with click.open_file(path,'r', 'utf-8') as f:
         content = f.read()
+
+    #content.encode("utf8").decode("ascii",errors="ignore")
 
     filename, file_extension = os.path.splitext(path)
 
@@ -1813,11 +1845,10 @@ def read(name, list_docs, location, kind, create, append):
 
     content = ''
 
-    if sys.stdin.isatty() or True:
-        content = sys.stdin.read()
-    else:
-        content = get_input()
-
+    # if sys.stdin.isatty() or True:
+    #     content = sys.stdin.read()
+    with click.open_file('-','r','utf-8') as f:
+        content = f.read()
 
     if not (name or create or append):
         # we'll assume create
@@ -1842,7 +1873,7 @@ def read(name, list_docs, location, kind, create, append):
     if not location:
         location = 'default'
 
-    if create:
+    if create or not append:
         doc = yew.store.create_document(name, location, kind, content=content)
     else:
         s = doc.get_content() + content
