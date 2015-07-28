@@ -1056,6 +1056,7 @@ def tag(tagname,docname,list_docs,create,untag):
     remove tags.
 
     """
+
     tag = None
     if tagname:
         tagname = tagname.lower()
@@ -1084,11 +1085,11 @@ def tag(tagname,docname,list_docs,create,untag):
         elif docs:
             doc = docs
             if untag:
-                yew.store.associate_tag(doc.uid,tag.tagid)
-                click.echo("%s => %s" % (tag.name, doc.name))
-            else:
                 yew.store.dissociate_tag(doc.uid,tag.tagid)
                 click.echo("%s => %s removed" % (tag.name, doc.name))
+            else:
+                yew.store.associate_tag(doc.uid,tag.tagid)
+                click.echo("%s => %s" % (tag.name, doc.name))
     else:
         # list tags
         tags = yew.store.get_tags(tagname)
