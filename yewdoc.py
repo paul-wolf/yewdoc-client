@@ -1363,11 +1363,11 @@ def sync(name,force):
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_DOES_NOT_EXIST:
-            click.echo("push new doc to remote: %s %s" % (doc.uid,doc.name))
+            click.echo("push new doc to remote: %s %s" % (doc.short_uid(),doc.name))
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_DELETED:
-            click.echo("remote was deleted: cannot sync to remote")
+            click.echo("remote was deleted: cannot sync to remote: %s %s " % ((doc.short_uid(),doc.name)))
         else:
             raise Exception("Invalid remote status: %s for %s" % (c,str(doc)))
 
