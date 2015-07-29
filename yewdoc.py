@@ -1688,6 +1688,7 @@ def take(path,kind,force):
     Should be a text type, but we leave that to user.
 
     --force will cause a similarly titled document to be overwritten
+    in the case of a name conflict.
 
     """
     if not os.path.exists(path) or not os.path.isfile(path):
