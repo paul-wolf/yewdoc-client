@@ -1384,13 +1384,13 @@ def sync(name,force):
         if c == Remote.STATUS_REMOTE_SAME:
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_NEWER:
-            click.echo("get newer content from remote: %s %s" % (doc.uid,doc.name))
+            click.echo("get newer content from remote: %s %s" % (doc.short_uid(),doc.name))
             remote_doc = yew.remote.fetch(doc.uid)
             # a dict
             doc.put_content(remote_doc['content'])
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_OLDER:
-            click.echo("push newer content to remote: %s %s" % (doc.uid,doc.name))
+            click.echo("push newer content to remote: %s %s" % (doc.short_uid(),doc.name))
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_DOES_NOT_EXIST:
