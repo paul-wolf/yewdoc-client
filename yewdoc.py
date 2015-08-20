@@ -1498,6 +1498,21 @@ def describe(name,list_docs,remote,diff):
         click.echo(s)
 
 @cli.command()
+@click.argument('name1', required=True)
+@click.argument('name2', required=True)
+def diff(name1,name2):
+    doc1 = get_document_selection(name1,list_docs=False)
+    doc2 = get_document_selection(name2,list_docs=False)
+    """Compare two documents."""
+
+    s = diff_content(
+        doc1.get_content().rstrip().splitlines(),
+        doc2.get_content().rstrip().splitlines()
+    )
+    click.echo(s)
+
+    
+@cli.command()
 def push():
     """Push all documents to the server."""
     if yew.remote.offline:
