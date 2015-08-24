@@ -1328,7 +1328,7 @@ def ls(name,info,remote, humanize, tags):
     if remote:
         response = yew.remote.get_docs()
         for doc in response:
-            click.echo("%s %s" % (doc['uid'], doc['title']))
+            click.echo("%s %s" % (get_short_uid(doc['uid']), doc['title']))
 
         sys.exit(0)
     tag_objects = []
