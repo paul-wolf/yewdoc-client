@@ -1393,24 +1393,24 @@ def sync(name,force):
             doc.put_content(remote_doc['content'])
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_OLDER:
-            click.echo("push newer content to remote: %s %s" % (doc.short_uid(),doc.name))
+            click.echo("push newer content to remote : %s %s" % (doc.short_uid(),doc.name))
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_DOES_NOT_EXIST:
-            click.echo("push new doc to remote: %s %s" % (doc.short_uid(),doc.name))
+            click.echo("push new doc to remote       : %s %s" % (doc.short_uid(),doc.name))
             yew.remote.push_doc(doc)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_DELETED:
-            click.echo("remote was deleted: cannot sync to remote: %s %s " % ((doc.short_uid(),doc.name)))
+            click.echo("remote was deleted           : %s %s" % (doc.short_uid(),doc.name))
         else:
-            raise Exception("Invalid remote status: %s for %s" % (c,str(doc)))
+            raise Exception("Invalid remote status   : %s for %s" % (c,str(doc)))
 
     remote_docs = yew.remote.get_docs()
     for rdoc in remote_docs:
         if rdoc['uid'] in remote_done:
             continue
         remote_doc = yew.remote.fetch(rdoc['uid'])
-        click.echo("importing doc: %s %s" % (get_short_uid(remote_doc['uid']), remote_doc['title']))
+        click.echo("importing doc: %s %s" % (remote_doc['uid'].split('-')[0],remote_doc['title']))
         yew.store.import_document(remote_doc['uid'],
                                   remote_doc['title'],
                                   'default',
@@ -1500,6 +1500,21 @@ def describe(name,list_docs,remote,diff):
         )
         click.echo(s)
 
+@cli.command()
+@click.argument('name1', required=True)
+@click.argument('name2', required=True)
+def diff(name1,name2):
+    doc1 = get_document_selection(name1,list_docs=False)
+    doc2 = get_document_selection(name2,list_docs=False)
+    """Compare two documents."""
+
+    s = diff_content(
+        doc1.get_content().rstrip().splitlines(),
+        doc2.get_content().rstrip().splitlines()
+    )
+    click.echo(s)
+
+    
 @cli.command()
 def push():
     """Push all documents to the server."""
@@ -1691,6 +1706,7 @@ def take(path,kind,force):
     Should be a text type, but we leave that to user.
 
     --force will cause a similarly titled document to be overwritten
+    in the case of a name conflict.
 
     """
     if not os.path.exists(path) or not os.path.isfile(path):
