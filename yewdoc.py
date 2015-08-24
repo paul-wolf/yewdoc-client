@@ -1717,11 +1717,11 @@ def take(path,kind,force):
     with click.open_file(path,'r', 'utf-8') as f:
         content = f.read()
 
-    #content.encode("utf8").decode("ascii",errors="ignore")
-
     filename, file_extension = os.path.splitext(path)
 
-    if not kind:
+    # try to figure out what kind of file it is
+    # don't get confused by files starting with dot
+    if not kind and not filename.startswith('.'):
         # get the extension of the file without dot
         if '.' in path:
             kind = path.split('.')[-1]
