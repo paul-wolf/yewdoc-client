@@ -82,6 +82,9 @@ def is_short_uuid(s):
     uuid_short_regex = re.compile('[0-9a-f]{8}\Z', re.I)
     return uuid_short_regex.match(s)
 
+def get_short_uid(s):
+    return s.split('-')[0]
+
 def delete_directory(folder):
     """Delete directory p and all sub directories and files."""
     try:
@@ -1407,7 +1410,7 @@ def sync(name,force):
         if rdoc['uid'] in remote_done:
             continue
         remote_doc = yew.remote.fetch(rdoc['uid'])
-        click.echo("importing doc: %s %s" % (remote_doc['uid'],remote_doc['title']))
+        click.echo("importing doc: %s %s" % (get_short_uid(remote_doc['uid']), remote_doc['title']))
         yew.store.import_document(remote_doc['uid'],
                                   remote_doc['title'],
                                   'default',
