@@ -659,8 +659,26 @@ class YewStore(object):
         )
         return tag
 
+    def get_tag(self, tagid):
+        """Get a tag by id.
+        """
+        tag = None
+        c = self.conn.cursor()
+        s = "SELECT * FROM tag WHERE location = ? AND tagid = ?"
+        c.execute(s, (self.location,tagid))
+        row = c.fetchone()
+        if row:
+            tag = Tag(
+                store=self,
+                location=row[0],
+                tagid=row[1],
+                name=row[2]
+            )
+        return tag
+
+
     def get_tags(self, name=None, exact=False):
-        """Get all tags and return a list of tag objects.
+        """Get all tags that match name and return a list of tag objects.
 
         If exact is True, the result will have at most one element.
 
@@ -828,7 +846,7 @@ class YewStore(object):
         username = self.username
         # print "put_user_pref (%s,%s,%s): "% (username,k,v)
         if not k or not v:
-            echo.click("not storing nulls")
+            click.echo("not storing nulls")
             return  # don't store null values
         c = self.conn.cursor()
         if self.get_user_pref(k):
@@ -843,6 +861,15 @@ class YewStore(object):
         # print self.get_user_pref(username,k)
 
         c.close()
+
+    def delete_user_pref(self, k):
+        username = self.username
+        print "delete_user_pref (%s,%s): " % (username,k)
+        c = self.conn.cursor()
+        sql = "DELETE FROM user_prefs WHERE username = ? AND key = ?"
+        c.execute(sql, (username, k))
+        self.conn.commit()
+        return 
 
     def get_user_project_pref(self, username, project, k):
         # print "get_user_pref (%s,%s): " % (username,k)
@@ -1164,6 +1191,43 @@ def tag(tagname, docname, list_docs, create, untag):
 
 
 @cli.command()
+@click.option('--tag', '-t', required=False, help="Set a tag as a filter.")
+@click.option('--clear', '-c', is_flag=True, required=False, help="Clear the context.")
+def context(tag, clear):
+    """Set or unset a context.
+
+    A context is essentially a filter. When a context, like a tag is
+    set, operations that list documents will filter the
+    documents. Like the `ls` command with a context of `-t foo` will
+    only list documents tagged with `foo`.
+
+    Use `--clear` to clear the context.
+
+    Currently, only a single tag is allowed for context.
+
+    """
+    tags = None
+    current_tag_context = yew.store.get_user_pref('tag_context')
+    if tag:
+        # lookup tag
+        tags = yew.store.get_tags(tag, exact=True)
+        if not tags:
+            click.echo("Tag not found; must be exact match")
+            sys.exit(1)
+        elif len(tags) > 1:
+            click.echo("More than one tag found. Only one tag allowed. Tags matching: %s" % ", ".join(tags))
+            sys.exit(1)
+        yew.store.put_user_pref('tag_context',tags[0].tagid)
+        current_tag_context = yew.store.get_user_pref('tag_context')
+
+    if clear:
+        yew.store.delete_user_pref('tag_context')
+        current_tag_context = yew.store.get_user_pref('tag_context')
+
+    if current_tag_context:
+        click.echo("current tag context: %s" % yew.store.get_tag(current_tag_context))
+
+@cli.command()
 @click.argument('name', required=False)
 @click.argument('value', required=False)
 def global_pref(name, value):
@@ -1375,6 +1439,12 @@ def ls(name, info, remote, humanize, tags):
     tag_objects = []
     if tags:
         tag_objects = yew.store.parse_tags(tags)
+    else:
+        # check for context
+        current_tag_context = yew.store.get_user_pref('tag_context')
+        if current_tag_context:
+            tag_objects = [yew.store.get_tag(current_tag_context)]
+            click.echo("Current tag context: %s" % str(tag_objects[0]))
     if name:
         docs = yew.store.search_names(name)
     else:
