@@ -135,6 +135,7 @@ class TagDoc(object):
 
 class Document(object):
     """Describes a document."""
+
     def __init__(self,store,uid,name,location,kind):
         self.store = store
         self.uid = uid
@@ -452,7 +453,7 @@ class Remote(object):
         data = doc.serialize()
 
         if status == Remote.STATUS_REMOTE_OLDER:
-            # it exists, so let's put together the  update url and PUT it
+            # it exists, so let's put together the update url and PUT it
             url = "%s/api/document/%s/" % (self.url,doc.uid)
             data = doc.serialize(no_uid=True)
             r = requests.put(url, data=data, headers=self.headers, verify=self.verify)
@@ -546,15 +547,14 @@ class YewStore(object):
 
     def get_tmp_directory(self):
         """Return path for temporary storage."""
-        #home = expanduser("~")
-        #tmp_dir = os.path.join(home,'.yew.d','tmp')
+
         tmp_dir = os.path.join(self.get_storage_directory(),'tmp')
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
         return tmp_dir
 
     def make_db(self,path):
-        """Create the tables if it does not exist and get or create tables."""
+        """Create the db if not exist and get or create tables."""
         conn = sqlite3.connect(path)
         c = conn.cursor()
         sql = '''
@@ -623,6 +623,7 @@ class YewStore(object):
 
     def get_or_create_tag(self,name):
         """Create a new tag. Make sure it is unique."""
+
         c = self.conn.cursor()
         tagid = SG("#[\l\d]{8}").render()
         s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
@@ -670,6 +671,7 @@ class YewStore(object):
 
     def parse_tags(self, tag_string):
         """Parse tag_string and return a list of tag objects."""
+
         string_tags = tag_string.split(',')
         tag_list = []
         for t in string_tags:
@@ -680,6 +682,7 @@ class YewStore(object):
 
     def associate_tag(self,uid,tagid):
         """Tag a document."""
+
         c = self.conn.cursor()
         s = "INSERT OR IGNORE INTO tagdoc VALUES (?,?)"
         c.execute(s, (uid,tagid))
@@ -687,6 +690,7 @@ class YewStore(object):
 
     def dissociate_tag(self,tagid,uid):
         """Untag a document."""
+
         c = self.conn.cursor()
         s = "DELETE FROM tagdoc WHERE tagid = ? and uid = ?"
         c.execute(s, (uid,tagid))
@@ -695,8 +699,6 @@ class YewStore(object):
     def delete_document(self,doc):
         """Delete a document and its associated entities."""
 
-        #home = expanduser("~")
-        #yew_dir = os.path.join(home,'.yew.d')
         # remove record
         c = self.conn.cursor()
         sql = "DELETE FROM document WHERE uid = ?"
@@ -714,8 +716,11 @@ class YewStore(object):
 
     def update_recent(self,username,doc):
         """Update most recent list.
+
         Return list of uids.
+
         """
+
         list_unparsed = self.get_user_pref("recent_list")
         if list_unparsed:
             list_parsed = json.loads(list_unparsed)
@@ -729,6 +734,7 @@ class YewStore(object):
 
     def get_recent(self,username):
         """Get most recent documents."""
+
         list_unparsed = self.get_user_pref("recent_list")
         docs = []
         if list_unparsed:
@@ -767,6 +773,7 @@ class YewStore(object):
 
     def put_global(self,k,v):
         """Set a global preference. Must be in class var global_preferences."""
+
         if not k in YewStore.global_preferences:
             raise ValueError("Unknown global preference: %s. Choices are: %s" % (k,", ".join(YewStore.global_preferences)))
         #print "put_global (%s,%s)" % (k,v)
@@ -849,6 +856,7 @@ class YewStore(object):
 
     def get_doc(self,uid):
         """Get a doc or None."""
+
         doc = None
         sql = "select uid,name,location,kind FROM document WHERE uid = ?"
         c = self.conn.cursor()
@@ -861,6 +869,7 @@ class YewStore(object):
 
     def change_doc_kind(self,doc,new_kind):
         """Change type of document."""
+
         path_src = doc.path
         doc.kind = new_kind
         path_dest = doc.get_path()
@@ -879,7 +888,8 @@ class YewStore(object):
 
 
     def search_names(self, name_frag, exact=False):
-        """Get a docs with LIKE unless matching exactly."""
+        """Get docs with LIKE unless matching exactly."""
+
         c = self.conn.cursor()
 
         if not exact:
@@ -928,6 +938,7 @@ class YewStore(object):
         TODO: check if exists.
 
         """
+
         if not location:
             location = "default"
         # check if present
@@ -943,6 +954,7 @@ class YewStore(object):
 
     def reindex_doc(self, doc):
         """Refresh index information."""
+
         # check if present
         #if not self.get_doc(doc.uid):
         #    raise Exception("Can't reindex non-existant document.")
@@ -955,6 +967,7 @@ class YewStore(object):
 
     def get(self,uid):
         """Get a single document with the uid from local store."""
+
         if not is_uuid(uid):
             raise Exception("Not a valid uid.")
         doc = None
@@ -1015,7 +1028,7 @@ class YewStore(object):
         return doc
 
 class YewCLI(object):
-    """Non-store operations.
+    """Wraps two principle classes.
 
     We manage the store and remote objects.
 
@@ -1257,12 +1270,13 @@ def edit(name,list_docs,open_file):
     will handle the file. 
 
     When the editor is closed, the file will sync to the server
-    (if not working offline). 
+    if you are registered with a Yewdoc cloud instance
+    (and if not working offline). 
 
-    --open-file will send the the document to the host operating 
-    system for it to decide how to open the file. Since using this 
-    option means the editor is not a child process, 
-    you need to manually sync with remote to push changes. 
+    --open-file will send the document to the host operating system
+    for it to decide how to open the file. Since using this option
+    means the editor is not a child process, you need to manually sync
+    with remote to push changes.
 
     """
 
@@ -1698,7 +1712,8 @@ def convert(name,destination_format, list_docs, formats):
 @click.argument('path', required=True)
 @click.option('--kind','-k', required=False)
 @click.option('--force','-f', is_flag=True, required=False)
-def take(path,kind,force):
+@click.option('--symlink','-s', is_flag=True, required=False)
+def take(path, kind, force, symlink):
     """Import a file as a document.
 
     The base filename becomes the document title.
