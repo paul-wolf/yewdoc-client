@@ -183,6 +183,8 @@ class Document(object):
     def get_path(self):
         return os.path.join(self.store.get_storage_directory(), self.location, self.uid,
                             self.get_filename())
+    def is_link(self):
+        return os.path.islink(self.get_path())
 
     def get_media_path(self):
         path = os.path.join(self.store.get_storage_directory(), self.location, self.uid,
@@ -200,6 +202,7 @@ class Document(object):
 
     def dump(self):
         click.echo("uid      : %s" % self.uid)
+        click.echo("link     : %s" % self.is_link())
         click.echo("title    : %s" % self.name)
         click.echo("location : %s" % self.location)
         click.echo("kind     : %s" % self.kind)
@@ -1052,7 +1055,7 @@ class YewStore(object):
         with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
 
-    def create_document(self, name, location, kind, content=None):
+    def create_document(self, name, location, kind, content=None, symlink_source_path=None):
         if not location:
             location = self.location
         uid = str(uuid.uuid1())
@@ -1060,7 +1063,17 @@ class YewStore(object):
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, "doc." + kind.lower())
-        self.touch(p)
+
+        if symlink_source_path:
+            # we are symlinking to an existing path
+            # we need an absolute path for this to work
+            symlink_source_path = os.path.abspath(symlink_source_path)
+            os.symlink(symlink_source_path, p)
+            print "symlinked: ", p
+        else:
+            # the normal case
+            self.touch(p)
+
         if os.path.exists(p):
             doc = self.index_doc(uid, name, location, kind)
             if content:
@@ -1466,7 +1479,10 @@ def ls(name, info, remote, humanize, tags):
         docs = yew.store.get_docs(tag_objects=tag_objects)
     for doc in docs:
         if info:
-            click.echo("   ", nl=False)
+            if doc.is_link():
+                click.echo("ln ", nl=False)
+            else: 
+                click.echo("   ", nl=False)
             click.echo(doc.short_uid(), nl=False)
             click.echo("   ", nl=False)
             click.echo(doc.kind.rjust(5), nl=False)
@@ -1613,7 +1629,8 @@ def describe(name, list_docs, remote, diff):
     """Show document details."""
 
     doc = get_document_selection(name, list_docs)
-    doc.dump()
+    if doc:
+        doc.dump()
     status = None
     if remote:
         r_info = yew.remote.doc_exists(doc.uid)
@@ -1622,7 +1639,7 @@ def describe(name, list_docs, remote, diff):
             click.echo("%s: %s" % (k, v))
         status = yew.remote.doc_status(doc.uid)
         click.echo(Remote.STATUS_MSG[status])
-    if diff and not status == Remote.STATUS_REMOTE_SAME \
+    if doc and diff and not status == Remote.STATUS_REMOTE_SAME \
        and not Remote.STATUS_NO_CONNECTION:
         remote_doc = yew.remote.fetch(doc.uid)
         s = diff_content(
@@ -1850,9 +1867,12 @@ def take(path, kind, force, symlink):
         click.echo("path does not exist: %s" % path)
         sys.exit(1)
 
+    content = None
+
     # slurp file
-    with click.open_file(path, 'r', 'utf-8') as f:
-        content = f.read()
+    if not symlink:
+        with click.open_file(path, 'r', 'utf-8') as f:
+            content = f.read()
 
     filename, file_extension = os.path.splitext(path)
 
@@ -1874,7 +1894,7 @@ def take(path, kind, force, symlink):
     # ingest the same file that might be updated out-of-band
     # TODO: handle multiple titles of same name
     docs = yew.store.search_names(title, exact=True)
-    if docs:
+    if docs and not symlink:
         if len(docs) == 1:
             if not force:
                 click.echo("A document with this title exists already")
@@ -1883,8 +1903,15 @@ def take(path, kind, force, symlink):
                 yew.remote.push_doc(docs[0])
                 sys.exit(0)
 
-    doc = yew.store.create_document(title, 'default', kind)
-    doc.put_content(unicode(content))
+    if symlink:
+        doc = yew.store.create_document(title, 
+                                        'default', 
+                                        kind,
+                                        symlink_source_path=path)
+        print "Symlinked: ", doc.uid
+    else:
+        doc = yew.store.create_document(title, 'default', kind)
+        doc.put_content(unicode(content))
     yew.remote.push_doc(doc)
 
 
