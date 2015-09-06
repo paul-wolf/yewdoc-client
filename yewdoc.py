@@ -544,23 +544,38 @@ class YewStore(object):
         "json",
     ]
 
-    def __init__(self):
+    DEFAULT_USERNAME = 'yewser'
+
+    def get_user_directory(self, username=None):
+        """Get the directory for the current local user.
+
+        Expand home and then find current yewdocs user.
+
+        If username is not None, use that as user name.
+
+        """
         home = expanduser("~")
-        yew_dir = os.path.join(home, '.yew.d')
+        if not username:
+            username = 'yewser'
+        yew_dir = os.path.join(home, '.yew.d', username)
         if not os.path.exists(yew_dir):
-            #     self.put_global('offline',True)
             os.makedirs(yew_dir)
+        return yew_dir
+
+    def __init__(self):
+        """Make sure storage is setup."""
+
+        yew_dir = self.get_user_directory()
         self.yewdb_path = os.path.join(yew_dir, 'yew.db')
         self.conn = self.make_db(self.yewdb_path)
-        self.username = self.get_global('username', 'yewser')
+        # TODO: change this to be the same as get_user_directory()
+        self.username = self.get_global('username', YewStore.DEFAULT_USERNAME)
         self.offline = self.get_global('offline', False)
         self.location = 'default'
 
     def get_storage_directory(self):
         """Return path for storage."""
-
-        home = expanduser("~")
-        yew_dir = os.path.join(home, '.yew.d')
+        yew_dir = self.get_user_directory()
         return yew_dir
 
     def get_tmp_directory(self):
