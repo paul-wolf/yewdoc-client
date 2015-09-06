@@ -511,6 +511,48 @@ class Remote(object):
             raise OfflineException()
         pass
 
+    def push_tags(self, tag_data):
+        """Post tags to server.
+
+
+        """
+        if self.offline:
+            raise OfflineException()
+        
+        url = "%s/api/tag_list/" % (self.url)
+        r = requests.post(url, data=json.dumps(tag_data), headers=self.headers, verify=self.verify)
+
+    def push_tag_associations(self):
+        """Post tag associations to server.
+
+
+        """
+        if self.offline:
+            raise OfflineException()
+
+        tag_docs = self.store.get_tag_associations()   
+        data = []
+        for tag_doc in tag_docs:
+            td = {}
+            td['uid'] = tag_doc.uid
+            td['tid'] = tag_doc.tagid
+            data.append(td)
+        url = "%s/api/tag_docs/" % (self.url)
+        r = requests.post(url, data=json.dumps(data), headers=self.headers, verify=self.verify)
+
+
+
+    def pull_tags(self):
+        """Pull tags from server.
+
+        """
+        if self.offline:
+            raise OfflineException()
+        
+        url = "%s/api/tag_list/" % (self.url)
+        r = requests.get(url, headers=self.headers, verify=self.verify)
+        return r.content
+
 
 class YewStore(object):
     """Our data store.
@@ -723,6 +765,20 @@ class YewStore(object):
             tags.append(tag)
         return tags
 
+    def get_tag_associations(self):
+        """Get tag associations.
+
+        """
+        tags = []
+        c = self.conn.cursor()
+        s = "SELECT * FROM tagdoc"
+        c.execute(s)
+        tag_docs = []
+        rows = c.fetchall()
+        for row in rows:
+            tag_docs.append(TagDoc(store=self, tagid=row[1], uid=row[0]))
+        return tag_docs
+    
     def parse_tags(self, tag_string):
         """Parse tag_string and return a list of tag objects."""
 
@@ -1505,8 +1561,11 @@ def ls(name, info, remote, humanize, tags):
 
 @cli.command()
 @click.argument('name', required=False)
-@click.option('--force', '-f', is_flag=True, required=False)
-def sync(name, force):
+@click.option('--force', '-f', is_flag=True, required=False, 
+              help="Don't confirm deletes")
+@click.option('--prune', '-p', is_flag=True, required=False, 
+              help="Delete local docs marked as deleted on server")
+def sync(name, force, prune):
     """Pushes local docs and pulls docs from remote.
 
     We don't overwrite newer docs.
@@ -1525,6 +1584,7 @@ def sync(name, force):
     remote_done = []
 
     for doc in docs_local:
+        print doc.name.ljust(50), '\r',
         c = yew.remote.doc_status(doc.uid)
         if c == Remote.STATUS_REMOTE_SAME:
             remote_done.append(doc.uid)
@@ -1546,8 +1606,13 @@ def sync(name, force):
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_DELETED:
             click.echo("remote was deleted           : %s %s" % (doc.short_uid(), doc.name))
+            if prune:
+                yew.store.delete_document(doc)
+                click.echo("pruned local")
         else:
             raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
+
+    print ''.ljust(50), '\r'
 
     remote_docs = yew.remote.get_docs()
     for rdoc in remote_docs:
@@ -1561,6 +1626,17 @@ def sync(name, force):
                                   remote_doc['kind'],
                                   remote_doc['content'])
 
+    
+    yew.remote.push_tag_associations()
+            
+    tags = yew.store.get_tags('')
+    if len(tags) > 0:
+        click.echo("syncing tags")
+        tag_data = {}
+        for tag in tags:
+            tag_data[tag.tagid] = tag.name
+        #print yew.remote.pull_tags()
+        yew.remote.push_tags(tag_data)
 
 @cli.command()
 @click.argument('name', required=False)
