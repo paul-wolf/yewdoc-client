@@ -1069,7 +1069,6 @@ class YewStore(object):
             # we need an absolute path for this to work
             symlink_source_path = os.path.abspath(symlink_source_path)
             os.symlink(symlink_source_path, p)
-            print "symlinked: ", p
         else:
             # the normal case
             self.touch(p)
@@ -1534,6 +1533,8 @@ def sync(name, force):
             remote_doc = yew.remote.fetch(doc.uid)
             # a dict
             doc.put_content(remote_doc['content'])
+            if not remote_doc['title'] == doc.name:
+                yew.store.rename_doc(doc, remote_doc['title'])
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_OLDER:
             click.echo("push newer content to remote : %s %s" % (doc.short_uid(), doc.name))
@@ -1908,7 +1909,7 @@ def take(path, kind, force, symlink):
                                         'default', 
                                         kind,
                                         symlink_source_path=path)
-        print "Symlinked: ", doc.uid
+        click.echo("Symlinked: %s" % doc.uid)
     else:
         doc = yew.store.create_document(title, 'default', kind)
         doc.put_content(unicode(content))
