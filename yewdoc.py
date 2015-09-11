@@ -551,7 +551,19 @@ class Remote(object):
         
         url = "%s/api/tag_list/" % (self.url)
         r = requests.get(url, headers=self.headers, verify=self.verify)
-        return r.content
+        return json.loads(r.content)
+
+    
+    def pull_tag_associations(self):
+        """Pull tags from server.
+
+        """
+        if self.offline:
+            raise OfflineException()
+        
+        url = "%s/api/tag_docs/" % (self.url)
+        r = requests.get(url, headers=self.headers, verify=self.verify)
+        return json.loads(r.content)
 
 
 class YewStore(object):
@@ -704,6 +716,26 @@ class YewStore(object):
 
         c = self.conn.cursor()
         tagid = SG("#[\l\d]{8}").render()
+        s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
+        # print "INSERT OR IGNORE INTO tag VALUES ('%s','%s','%s')" % (self.location,tagid,name)
+        c.execute(s, (self.location, tagid, name))
+        self.conn.commit()
+        s = "SELECT * FROM tag WHERE tagid = ?"
+        c.execute(s, (tagid,))
+        row = c.fetchone()
+        tag = Tag(
+            store=self,
+            location=row[0],
+            tagid=row[1],
+            name=row[2]
+        )
+        return tag
+    
+    def sync_tag(self, tagid, name):
+        """Import a tag if not existing and return tag object.
+        """
+
+        c = self.conn.cursor()
         s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
         # print "INSERT OR IGNORE INTO tag VALUES ('%s','%s','%s')" % (self.location,tagid,name)
         c.execute(s, (self.location, tagid, name))
@@ -1009,10 +1041,10 @@ class YewStore(object):
         c = self.conn.cursor()
 
         if not exact:
-            sql = "select uid,name,location,kind FROM document WHERE name LIKE ?"
+            sql = "SELECT uid,name,location,kind FROM document WHERE name LIKE ?"
             c.execute(sql, ("%" + name_frag + "%",))
         else:
-            sql = "select uid,name,location,kind FROM document WHERE name = ?"
+            sql = "SELECT uid,name,location,kind FROM document WHERE name = ?"
             c.execute(sql, (name_frag,))
 
         rows = c.fetchall()
@@ -1087,7 +1119,7 @@ class YewStore(object):
         if not is_uuid(uid):
             raise Exception("Not a valid uid.")
         doc = None
-        sql = "select uid,name,location,kind FROM document WHERE uid = ?"
+        sql = "SELECT uid,name,location,kind FROM document WHERE uid = ?"
         c = self.conn.cursor()
         c.execute(sql, (uid,))
         row = c.fetchone()
@@ -1230,6 +1262,8 @@ def tag(tagname, docname, list_docs, create, untag):
 
     Use this command to create tags, associate them with documents and
     remove tags.
+
+    The tag command with no further arguments or options will list all tags.
 
     """
 
@@ -1631,13 +1665,28 @@ def sync(name, force, prune):
             
     tags = yew.store.get_tags('')
     if len(tags) > 0:
-        click.echo("syncing tags")
+        click.echo("syncing tags to server")
         tag_data = {}
         for tag in tags:
             tag_data[tag.tagid] = tag.name
-        #print yew.remote.pull_tags()
+
         yew.remote.push_tags(tag_data)
 
+    # get tags from server
+    tags = yew.remote.pull_tags()
+    if tags:
+        click.echo("syncing tags from server")
+        for tagid,name in tags.items():
+            yew.store.sync_tag(tagid,name)
+
+    tag_docs = yew.remote.pull_tag_associations()
+    if tag_docs:
+        click.echo("syncing tag associations")
+        for tag_association in tag_docs:
+            tid = tag_association['tid']
+            uid = tag_association['uid']
+            yew.store.associate_tag(uid,tid)
+            
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
