@@ -1246,9 +1246,9 @@ def get_user_email():
     self.url = self.store.get_user_pref('url')
 
 
-@cli.command()
-def make_db():
-    self.make_db(yew.store.yewdb_path)
+#@cli.command()
+#def make_db():
+#    self.make_db(yew.store.yewdb_path)
 
 
 @cli.command()
@@ -1779,6 +1779,8 @@ def describe(name, list_docs, remote, diff):
 @click.argument('name1', required=True)
 @click.argument('name2', required=True)
 def diff(name1, name2):
+    """Compare two documents."""
+
     doc1 = get_document_selection(name1, list_docs=False)
     doc2 = get_document_selection(name2, list_docs=False)
     """Compare two documents."""
