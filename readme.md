@@ -29,10 +29,10 @@ markdown, conf, etc. It offers these features:
   utility, you can do normal shell piping in and out, grep, etc.
  
 The target users are those who prefer to work in a single context,
-such as command-line without the mental overhead of switching back and
-forth between a shell and the host OS GUI. When working regularly on
-the command line, it is a considerable annoyance to have to break out
-to use the host OS file management app to find files and use the
+such as command line without the overhead of switching back and forth
+between a shell and the host OS GUI. When working regularly on the
+command line, it is a considerable annoyance to have to break out to
+use the host OS file management app to find files and use the
 mouse. Yewdoc lets the user seamlessly browse and operate on her
 collection of text files. These can be snippets, larger documents,
 notes, etc. Exporting to other formats is easy and natural.
@@ -40,12 +40,12 @@ notes, etc. Exporting to other formats is easy and natural.
 A major design goal is to reduce the mental overhead of finding
 files. Once a file is managed by Yewdoc, it is very easy to perform
 operations like editing on it without needing to remember the exact
-name or location. Documents can managed by Yewdoc either within it's
-own repositor or in-place as linked documents.
+name or location. Documents can be managed by Yewdoc either within its
+own repository or in-place as linked documents.
 
 You are not forced to choose between your favourite non-text editor
 and shell editor. You can just as well use Sublime, Atom or other
-non-text interfaces for editing Yewdoc documents.
+non-console interfaces for editing Yewdoc documents.
 
 It's possible to maintain text documents on a server and sync to any
 local device that supports Python (>= 2.7) and one of the common *nix
