@@ -66,7 +66,7 @@ Yewdoc works with Python 2.7.
 Git clone the repo, cd into the resulting directory and execute the
 install command:
 
-    ./install.sh
+    pip install --editable .
 
 > Currently pandoc must be installed following the instructions specific
 > to your operating system.

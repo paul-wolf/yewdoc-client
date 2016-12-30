@@ -33,7 +33,7 @@ from jinja2 import Template
 try:
     import pypandoc
 except:
-    print "pypandoc won't load. convert cmd will not work"
+    print "pypandoc won't load; convert cmd will not work"
 
 # suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
@@ -483,6 +483,8 @@ class Remote(object):
             # create a new one
             url = "%s/api/document/" % self.url
             r = requests.post(url, data=data, headers=self.headers, verify=self.verify)
+            if not r.status_code == 200:
+                print r.text
         return status
 
     def register(self, username, password, email, first_name, last_name):
@@ -539,7 +541,7 @@ class Remote(object):
             data.append(td)
         url = "%s/api/tag_docs/" % (self.url)
         r = requests.post(url, data=json.dumps(data), headers=self.headers, verify=self.verify)
-
+        return r
 
 
     def pull_tags(self):
@@ -743,6 +745,8 @@ class YewStore(object):
         s = "SELECT * FROM tag WHERE tagid = ?"
         c.execute(s, (tagid,))
         row = c.fetchone()
+        if not row:
+            return None
         tag = Tag(
             store=self,
             location=row[0],
@@ -1592,20 +1596,31 @@ def ls(name, info, remote, humanize, tags):
             #click.echo(slugify(doc.name), nl=False)
         click.echo('')
 
-
+def pdoc(doc, status, verbose):
+    p = verbose
+    if status == Remote.STATUS_REMOTE_SAME and not verbose:
+        pass
+    else:
+        click.echo(doc.name.ljust(50), nl=False)
+        msg = Remote.STATUS_MSG[status]
+        click.secho(msg, fg='green')
+    
 @cli.command()
 @click.argument('name', required=False)
 @click.option('--force', '-f', is_flag=True, required=False, 
               help="Don't confirm deletes")
 @click.option('--prune', '-p', is_flag=True, required=False, 
               help="Delete local docs marked as deleted on server")
-def sync(name, force, prune):
+@click.option('--verbose', '-v', is_flag=True, required=False, 
+              help="Print document status even when no change")
+def sync(name, force, prune, verbose):
     """Pushes local docs and pulls docs from remote.
 
     We don't overwrite newer docs.
     Does nothing if docs are the same.
 
     """
+    v = verbose
     # make sure we are online
     try:
         r = yew.remote.ping()
@@ -1618,35 +1633,52 @@ def sync(name, force, prune):
     remote_done = []
 
     for doc in docs_local:
-        print doc.name.ljust(50), '\r',
         c = yew.remote.doc_status(doc.uid)
         if c == Remote.STATUS_REMOTE_SAME:
+            pdoc(doc, c, v)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_NEWER:
-            click.echo("get newer content from remote: %s %s" % (doc.short_uid(), doc.name))
+            # click.echo("get newer content from remote: %s %s" % (doc.short_uid(), doc.name))
+            
             remote_doc = yew.remote.fetch(doc.uid)
             # a dict
             doc.put_content(remote_doc['content'])
             if not remote_doc['title'] == doc.name:
                 yew.store.rename_doc(doc, remote_doc['title'])
+            # click.secho("got remote", fg='green')
+            pdoc(doc, c, v)
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_OLDER:
-            click.echo("push newer content to remote : %s %s" % (doc.short_uid(), doc.name))
-            yew.remote.push_doc(doc)
+            # click.echo("push newer content to remote : %s %s" % (doc.short_uid(), doc.name))
+            r = yew.remote.push_doc(doc)
+            if r.status_code == 200:
+                pdoc(doc, c, v)
+                # click.secho('pushed successfully', fg='green')
+            else:
+                click.secho('pushed failed', fg='red')                
+                
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_DOES_NOT_EXIST:
-            click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
-            yew.remote.push_doc(doc)
+            # click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
+            print yew.remote.push_doc(doc)
+            if r.status_code == 200:
+                # click.secho('pushed successfully', fg='green')
+                pdoc(doc, c, v)
+            else:
+                click.secho('pushed failed', fg='red')                
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_DELETED:
-            click.echo("remote was deleted           : %s %s" % (doc.short_uid(), doc.name))
+            # click.echo("remote was deleted           : %s %s" % (doc.short_uid(), doc.name))
             if prune:
                 yew.store.delete_document(doc)
-                click.echo("pruned local")
+                # click.secho("pruned local", fg='green')
+                pdoc(doc, c, v)
+            else:
+                pdoc(doc, c, v)
         else:
             raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
 
-    print ''.ljust(50), '\r'
+    print ''
 
     remote_docs = yew.remote.get_docs()
     for rdoc in remote_docs:
@@ -1661,7 +1693,9 @@ def sync(name, force, prune):
                                   remote_doc['content'])
 
     
-    yew.remote.push_tag_associations()
+    r = yew.remote.push_tag_associations()
+    if not r.status_code == 200:
+        click.secho(r.text, fg='red')
             
     tags = yew.store.get_tags('')
     if len(tags) > 0:
