@@ -1155,7 +1155,7 @@ class YewStore(object):
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, "doc." + kind.lower())
-
+        
         if symlink_source_path:
             # we are symlinking to an existing path
             # we need an absolute path for this to work
@@ -1197,8 +1197,6 @@ class YewCLI(object):
     """
 
     def __init__(self):
-        """Initialize."""
-
         self.store = YewStore()
         self.remote = Remote(self.store)
 
@@ -1929,13 +1927,40 @@ def api():
 
 @cli.command()
 @click.argument('name', required=False)
+@click.argument('template', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
-def browse(name, list_docs):
-    """Convert to html and attempt to load in web browser."""
+@click.option('--tags', '-t', required=False)
+def browse(name, template, list_docs, tags):
+    """Convert to html and attempt to load in web browser.
 
+    Provide a name spec or tags to select documents.
+
+    You can provide your own Jinja (http://jinja.pocoo.org/) 
+    template. Leave this out to use the default.
+
+    """
+
+    if template:
+        template_path = template
+    else:
+        # get our default
+        p = os.path.realpath(__file__)
+        template_path = os.path.dirname(p)    
+        template_path = os.path.join(template_path, 'template_0.html')
+    if not os.path.exists(template_path):
+        click.echo("does not exist: {}".format(template_path))
+        sys.exit(1)
+    
     input_formats = ['md', 'rst']
-    #doc = get_document_selection(name,list_docs)
-    docs = yew.store.get_docs()
+
+    if tags:
+        tag_objects = yew.store.parse_tags(tags)
+    if name:
+        docs = yew.store.search_names(name)
+    else:
+        docs = yew.store.get_docs(tag_objects=tag_objects)
+
+
     nav = ''
     for doc in docs:
         tmp_dir = yew.store.get_tmp_directory()
@@ -1958,7 +1983,7 @@ def browse(name, list_docs):
             )
         tmp_dir = yew.store.get_tmp_directory()
         tmp_file = os.path.join(tmp_dir, doc.get_safe_name() + ".html")
-        with click.open_file('template_0.html', 'r') as f:
+        with click.open_file(template_path, 'r') as f:
             t = f.read()
 
         template = Template(t)
@@ -1976,6 +2001,7 @@ def browse(name, list_docs):
         #     nav=nav
         # )
         f = codecs.open(tmp_file, 'w', 'utf-8').write(dest)
+        
     click.launch(tmp_file)
 
 
@@ -2036,21 +2062,13 @@ def take(path, kind, force, symlink):
         with click.open_file(path, 'r', 'utf-8') as f:
             content = f.read()
 
-    filename, file_extension = os.path.splitext(path)
-
-    # try to figure out what kind of file it is
-    # don't get confused by files starting with dot
-    if not kind and not filename.startswith('.'):
-        # get the extension of the file without dot
-        if '.' in path:
-            kind = path.split('.')[-1]
+    # get location, filename, etc.
+    fn = os.path.basename(path)
+    filename, file_extension = os.path.splitext(fn)    
     if not kind:
-        kind = yew.store.get_user_pref('default_doc_type')
-    if not kind:
-        # because the user pref might be null
-        kind = "md"
-
+        kind = 'txt'
     title = os.path.splitext(path)[0]
+    
     # check if we have one with this title
     # the behaviour we want is for the user to continuously
     # ingest the same file that might be updated out-of-band
