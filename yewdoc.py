@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import os
 import io
 import sys
@@ -33,7 +34,7 @@ from jinja2 import Template
 try:
     import pypandoc
 except:
-    print "pypandoc won't load; convert cmd will not work"
+    print("pypandoc won't load; convert cmd will not work")
 
 # suppress pesky warnings while testing locally
 requests.packages.urllib3.disable_warnings()
@@ -99,7 +100,7 @@ def delete_directory(folder):
     try:
         shutil.rmtree(folder)
     except Exception as e:
-        print e
+        print(e)
 
 
 def get_sha_digest(s):
@@ -158,7 +159,7 @@ class Document(object):
         self.name = name
         self.location = location
         self.kind = kind
-        self.path = os.path.join(store.get_storage_directory(), location, uid, "doc." + kind)
+        self.path = os.path.join(store.get_storage_directory(), location, uid, u"doc." + kind)
         # TODO: lazy load
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(), location, uid)
@@ -178,7 +179,7 @@ class Document(object):
         return 'doc'
 
     def get_filename(self):
-        return "%s.%s" % (self.get_basename(), self.kind)
+        return u"%s.%s" % (self.get_basename(), self.kind)
 
     def get_path(self):
         return os.path.join(self.store.get_storage_directory(), self.location, self.uid,
@@ -263,7 +264,7 @@ class Remote(object):
 
     def __init__(self, store):
         self.store = store
-        self.token = "Token %s" % self.store.get_user_pref('location.default.token')
+        self.token = u"Token %s" % self.store.get_user_pref('location.default.token')
         self.headers = {'Authorization': self.token, "Content-Type": "application/json"}
         self.url = self.store.get_user_pref('location.default.url')
         self.verify = False
@@ -286,16 +287,16 @@ class Remote(object):
     def get(self, endpoint, data={}):
         """Perform get on remote with endpoint."""
         self.check_data()
-        url = "%s/api/%s/" % (self.url, endpoint)
+        url = u"%s/api/%s/" % (self.url, endpoint)
         return requests.get(url, headers=self.headers, params=data, verify=self.verify)
 
     def post(self, endpoint, data={}):
         """Perform post on remote."""
-        url = "%s/api/%s/" % (self.url, endpoint)
+        url = u"%s/api/%s/" % (self.url, endpoint)
         return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
     def unauthenticated_post(self, endpoint, data={}):
-        url = "%s/%s/" % (self.url, endpoint)
+        url = u"%s/%s/" % (self.url, endpoint)
         return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
 
     def delete(self, endpoint):
@@ -303,7 +304,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         self.check_data()
-        url = "%s/api/%s/" % (self.url, endpoint)
+        url = u"%s/api/%s/" % (self.url, endpoint)
         try:
             return requests.delete(url, headers=self.headers, verify=self.verify)
         except ConnectionError:
@@ -399,7 +400,6 @@ class Remote(object):
         r = yew.remote.get("document")
         try:
             response = json.loads(r.content)
-            # print r.content
             return response
         except ConnectionError:
             click.echo("Could not connect to server")
@@ -413,12 +413,12 @@ class Remote(object):
     STATUS_REMOTE_DELETED = 4
 
     STATUS_MSG = {
-        STATUS_NO_CONNECTION: "can't connect",
-        STATUS_REMOTE_SAME: "documents are the same",
-        STATUS_REMOTE_NEWER: "remote is newer",
-        STATUS_REMOTE_OLDER: "remote is older",
-        STATUS_DOES_NOT_EXIST: "remote does not exist",
-        STATUS_REMOTE_DELETED: "remote was deleted",
+        STATUS_NO_CONNECTION: u"can't connect",
+        STATUS_REMOTE_SAME: u"documents are the same",
+        STATUS_REMOTE_NEWER: u"remote is newer",
+        STATUS_REMOTE_OLDER: u"remote is older",
+        STATUS_DOES_NOT_EXIST: u"remote does not exist",
+        STATUS_REMOTE_DELETED: u"remote was deleted",
     }
 
     def doc_status(self, uid):
@@ -487,7 +487,7 @@ class Remote(object):
             url = "%s/api/document/" % self.url
             r = requests.post(url, data=data, headers=self.headers, verify=self.verify)
             if not r.status_code == 200:
-                print r.text
+                print(r.text)
         return status
 
     def register(self, username, password, email, first_name, last_name):
@@ -928,7 +928,7 @@ class YewStore(object):
                              (k, ", ".join(YewStore.global_preferences)))
         # print "put_global (%s,%s)" % (k,v)
         if not k or not v:
-            print "not storing nulls"
+            print("not storing nulls")
             return  # don't store null values
         c = self.conn.cursor()
         if self.get_global(k):
@@ -979,7 +979,7 @@ class YewStore(object):
 
     def delete_user_pref(self, k):
         username = self.username
-        print "delete_user_pref (%s,%s): " % (username,k)
+        print("delete_user_pref (%s,%s): " % (username,k))
         c = self.conn.cursor()
         sql = "DELETE FROM user_prefs WHERE username = ? AND key = ?"
         c.execute(sql, (username, k))
@@ -1001,7 +1001,7 @@ class YewStore(object):
     def put_user_project_pref(self, username, project, k, v):
         # print "put_user_pref (%s,%s,%s): "% (username,k,v)
         if not username or not project or not k or not v:
-            print "not storing nulls"
+            print("not storing nulls")
             return  # don't store null values
         c = self.conn.cursor()
         if self.get_user_project_pref(username, project, k):
@@ -1434,7 +1434,7 @@ def document_menu(docs, multiple=False):
     else:
         v = click.prompt('Select document', type=int)
         if not v in range(len(docs)):
-            print "Choice not in range"
+            print("Choice not in range")
             sys.exit(1)
     return docs[v]
 
@@ -1666,7 +1666,7 @@ def sync(name, force, prune, verbose):
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_DOES_NOT_EXIST:
             # click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
-            print yew.remote.push_doc(doc)
+            print(yew.remote.push_doc(doc))
             if r.status_code == 200:
                 # click.secho('pushed successfully', fg='green')
                 pdoc(doc, c, v)
@@ -1684,7 +1684,7 @@ def sync(name, force, prune, verbose):
         else:
             raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
 
-    print ''
+    print('')
 
     remote_docs = yew.remote.get_docs()
     for rdoc in remote_docs:
@@ -1876,35 +1876,41 @@ def tail(name, list_docs):
 
 @cli.command()
 @click.argument('name', required=False)
+@click.argument('new_name', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
-def rename(name, list_docs):
-    """Send contents of document to stdout."""
-
+def rename(name, new_name, list_docs):
+    """Rename a document."""
+    
     doc = get_document_selection(name, list_docs)
-    click.echo("Rename: '%s'" % doc.name)
-    v = click.prompt('Enter the new document title ', type=unicode)
-    if v:
-        doc = yew.store.rename_doc(doc, v)
+    if not new_name:
+        click.echo("Rename: '%s'" % doc.name)
+        new_name = click.prompt('Enter the new document title ', type=unicode)
+    if new_name:
+        doc = yew.store.rename_doc(doc, new_name)
     yew.remote.push_doc(doc)
 
 
 @cli.command()
 @click.argument('name', required=False)
+@click.argument('kind', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
-def kind(name, list_docs):
+def kind(name, kind, list_docs):
     """Change kind of document."""
 
     doc = get_document_selection(name, list_docs)
-    click.echo(doc)
-    click.echo("Current document kind: '%s'" % doc.kind)
-    for i, d in enumerate(yew.store.doc_kinds):
-        click.echo("%s" % (d))
-    kind = click.prompt('Select the new document kind ', type=str)
-    #kind = yew.store.doc_kinds[v]
+    if not kind:
+        click.echo(doc)
+        click.echo("Current document kind: '%s'" % doc.kind)
+        for i, d in enumerate(yew.store.doc_kinds):
+            click.echo("%s" % (d))
+        kind = click.prompt('Select the new document kind ', type=str)
     click.echo("Changing document kind to: %s" % kind)
     doc = yew.store.change_doc_kind(doc, kind)
-    yew.remote.push_doc(doc)
-
+    try:
+        yew.remote.push_doc(doc)
+    except Exception as e:
+        print(e)
+    sys.exit(0)
 
 @cli.command()
 def ping():

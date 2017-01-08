@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 
 import os 
 import unittest
@@ -35,6 +36,58 @@ class TestYewocsClient(unittest.TestCase):
     def test_create_document(self):
         self.create_document("my test doc")
 
+    def test_show_document(self):
+        self.create_document("my test doc")
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'show', 'my test doc'])
+        assert result.exit_code == 0
+
+    def test_describe_document(self):
+        self.create_document("my test doc")
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'describe', 'my test doc'])
+        assert result.exit_code == 0
+        assert u'location' in result.output
+        assert u'kind' in result.output
+        assert u'size' in result.output
+
+    def test_tail_document(self):
+        self.create_document("my test doc", content="dummy")
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'tail', 'my test doc'])
+        assert result.exit_code == 0
+        assert 'dummy' in result.output
+        
+    def test_head_document(self):
+        self.create_document("my test doc", content="dummy")
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'head', 'my test doc'])
+        assert result.exit_code == 0
+        assert 'dummy' in result.output
+        
+    def test_kind_document(self):
+        self.create_document("my test doc", content="dummy", kind='md')
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'kind', 'my test doc', 'txt'])
+        print(result.output)
+        assert result.exit_code == 0
+
+        
+    def test_rename_document(self):
+        self.create_document("my test doc", content="dummy", kind='md')
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'rename', 'my test doc', 'my new test doc'])
+        print(result.output)
+        # assert result.exit_code == 0
+        
+    def test_convert_document(self):
+        self.create_document("my test doc", content="dummy", kind='md')
+        runner = CliRunner()
+        result = runner.invoke(cli, ['--user=test_user', 'convert', 'my test doc', 'html'])
+        print(result.output)
+        assert result.exit_code == 0
+        assert '<p>dummy</p>' in result.output
+        
     def test_unicode(self):
         name = u"my test dóc"
         content = u"Ā ā Ă ă Ą ą Ć ć Ĉ ĉ Ċ ċ Č č Ď ď Đ đ Ē ē Ĕ ĕ Ė ė Ę ę Ě ě Ĝ ĝ Ğ ğ Ġ ġ Ģ ģ Ĥ ĥ Ħ ħ Ĩ ĩ Ī ī Ĭ ĭ Į į İ ı Ĳ ĳ Ĵ ĵ Ķ ķ ĸ Ĺ ĺ Ļ ļ Ľ ľ Ŀ ŀ Ł ł Ń ń Ņ ņ Ň ň ŉ Ŋ ŋ Ō ō Ŏ ŏ Ő ő Œ œ Ŕ ŕ Ŗ ŗ Ř ř Ś ś Ŝ ŝ Ş ş Š š Ţ ţ Ť ť Ŧ ŧ Ũ ũ Ū ū Ŭ ŭ Ů ů Ű ű Ų ų Ŵ ŵ Ŷ ŷ Ÿ Ź ź Ż ż Ž ž ſ"
