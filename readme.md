@@ -1,6 +1,8 @@
 YEWDOC
 ======
 
+[![Build Status](https://travis-ci.org/paul-wolf/yewdoc-client.svg?branch=master)](https://travis-ci.org/paul-wolf/yewdoc-client)
+
 Yewdoc is a personal document manager that makes creating and editing
 text documents from the command line easier than using an editor and
 filesystem commands.
