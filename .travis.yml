@@ -1,0 +1,24 @@
+language: python
+python:
+  - "2.6"
+  - "2.7"
+#  - "3.2"
+  - "3.3"
+  - "3.4"
+  - "3.5"
+  - "3.6"
+  - "nightly" # currently points to 3.6-dev
+
+install:
+  - pip install -r requirements.txt
+  - pip install --editable .
+
+script: python tests.py
+
+branches:
+  only:
+    - master
+
+notifications:
+  email: true
+  
