@@ -464,9 +464,12 @@ class Remote(object):
         """
         if self.offline:
             raise OfflineException()
-
-        status = self.doc_status(doc.uid)
-
+        try:
+            status = self.doc_status(doc.uid)
+        except RemoteException:
+            click.echo("could not reach remote")
+            return Remote.STATUS_NO_CONNECTION
+        
         if status == Remote.STATUS_REMOTE_SAME \
            or status == Remote.STATUS_REMOTE_NEWER \
            or status == Remote.STATUS_REMOTE_DELETED:
@@ -577,7 +580,8 @@ class YewStore(object):
 
     yewdb_path = None
     conn = None
-
+    username = None
+    
     global_preferences = [
         "username",
         "offline",
@@ -605,7 +609,7 @@ class YewStore(object):
 
     DEFAULT_USERNAME = 'yewser'
 
-    def get_user_directory(self, username=None):
+    def get_user_directory(self):
         """Get the directory for the current local user.
 
         Expand home and then find current yewdocs user.
@@ -614,28 +618,29 @@ class YewStore(object):
 
         """
         home = expanduser("~")
-        if not username:
-            username = 'yewser'
-        yew_dir = os.path.join(home, '.yew.d', username)
+        yew_dir = os.path.join(home, '.yew.d', self.username)
         if not os.path.exists(yew_dir):
             os.makedirs(yew_dir)
         return yew_dir
 
-    def __init__(self):
+    def __init__(self, username=None):
         """Make sure storage is setup."""
 
+        if not username:
+            self.username = YewStore.DEFAULT_USERNAME
+        else:
+            self.username = username
         yew_dir = self.get_user_directory()
         self.yewdb_path = os.path.join(yew_dir, 'yew.db')
         self.conn = self.make_db(self.yewdb_path)
         # TODO: change this to be the same as get_user_directory()
-        self.username = self.get_global('username', YewStore.DEFAULT_USERNAME)
+        self.username = self.get_global('username', self.username)
         self.offline = self.get_global('offline', False)
         self.location = 'default'
 
     def get_storage_directory(self):
         """Return path for storage."""
-        yew_dir = self.get_user_directory()
-        return yew_dir
+        return self.get_user_directory()
 
     def get_tmp_directory(self):
         """Return path for temporary storage."""
@@ -678,8 +683,8 @@ class YewStore(object):
            location NOT NULL,
            kind NOT NULL,
            digest,
-           folder_id,
-           FOREIGN KEY(folderid) REFERENCES folder(folder_id)
+           folderid,
+           FOREIGN KEY(folderid) REFERENCES folder(folderid)
         );'''
         c.execute(sql)
 
@@ -1196,15 +1201,18 @@ class YewCLI(object):
 
     """
 
-    def __init__(self):
-        self.store = YewStore()
+    def __init__(self, username='yewser'):
+        self.store = YewStore(username=username)
         self.remote = Remote(self.store)
 
 
 @click.group()
-@click.option('--user', help="User name", required=False)
+@click.option('--user', default='yewser', help="User name", required=False)
 def cli(user):
-    pass
+    global yew
+    yew = YewCLI(username=user)
+
+
 
 
 @cli.command()
@@ -2075,10 +2083,10 @@ def take(path, kind, force, symlink):
     # TODO: handle multiple titles of same name
     docs = yew.store.search_names(title, exact=True)
     if docs and not symlink:
-        if len(docs) == 1:
+        if len(docs) >= 1:
             if not force:
                 click.echo("A document with this title exists already")
-            if force or click.confirm("Overwrite existing document: %s ?" % docs[0].name):
+            if force or click.confirm("Overwrite existing document: %s ?" % docs[0].name, abort=True):
                 docs[0].put_content(unicode(content))
                 yew.remote.push_doc(docs[0])
                 sys.exit(0)
@@ -2189,10 +2197,11 @@ def register():
 @click.option('--create', '-c', is_flag=True, required=False, help="Create a new document")
 @click.option('--append', '-a', is_flag=True, required=False, help="Append to an existing document")
 def read(name, list_docs, location, kind, create, append):
-    """Get input from stdin and either create a new document or append to and existing.
+    """Get input from stdin and either create a new document or append to an existing one.
 
     --create and --append are mutually exclusive.
     --create requires a name.
+
     """
 
     if create and append:
@@ -2241,9 +2250,6 @@ def read(name, list_docs, location, kind, create, append):
     else:
         s = doc.get_content() + content
         doc.put_content(s)
-
-##### our one global ####
-yew = YewCLI()
 
 if __name__ == '__main__':
     cli()
