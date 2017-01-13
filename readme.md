@@ -1,13 +1,13 @@
-YEWDOC
-======
+YEWDOCS
+=======
 
 [![Build Status](https://travis-ci.org/paul-wolf/yewdoc-client.svg?branch=master)](https://travis-ci.org/paul-wolf/yewdoc-client)
 
-Yewdoc is a personal document manager that makes creating and editing
+Yewdocs is a personal document manager that makes creating and editing
 text documents from the command line easier than using an editor and
 filesystem commands.
 
-Yewdoc is for *text* documents: plain text, restructuredText,
+Yewdocs is for *text* documents: plain text, restructuredText,
 markdown, conf, etc. It offers these features:
 
 * Filesystem transparency: the user doesn't need to know where files
@@ -15,9 +15,9 @@ markdown, conf, etc. It offers these features:
 
 * Entirely keyboard driven.
 
-* Tags: you can tag documents with tags you define and filter by tag.
+* Tags: define tags and organise your documents with them.
 
-* Familiar commands: yewdoc has commands like 'ls', 'head', 'tail',
+* Familiar commands: yewdocs has commands like 'ls', 'head', 'tail',
   that are familiar to most shell users.
   
 * Optional cloud storage for synchronising to multiple
@@ -35,26 +35,26 @@ such as command line without the overhead of switching back and forth
 between a shell and the host OS GUI. When working regularly on the
 command line, it is a considerable annoyance to have to break out to
 use the host OS file management app to find files and use the
-mouse. Yewdoc lets the user seamlessly browse and operate on her
+mouse. Yewdocs lets the user seamlessly browse and operate on her
 collection of text files. These can be snippets, larger documents,
 notes, etc. Exporting to other formats is easy and natural.
 
 A major design goal is to reduce the mental overhead of finding
-files. Once a file is managed by Yewdoc, it is very easy to perform
+files. Once a file is managed by Yewdocs, it is very easy to perform
 operations like editing on it without needing to remember the exact
-name or location. Documents can be managed by Yewdoc either within its
+name or location. Documents can be managed by Yewdocs either within its
 own repository or in-place as linked documents.
 
 You are not forced to choose between your favourite non-text editor
 and shell editor. You can just as well use Sublime, Atom or other
-non-console interfaces for editing Yewdoc documents.
+non-console interfaces for editing Yewdocs documents.
 
 It's possible to maintain text documents on a server and sync to any
 local device that supports Python (>= 2.7) and one of the common *nix
 shells.
 
 You can edit and manage any kind of text file, txt, rst, md, conf,
-etc. Yewdoc does have a slight prejudice towards Markdown for newly
+etc. Yewdocs does have a slight prejudice towards Markdown for newly
 created documents but you can easily specify any format you wish.
 
 > This project is at a somewhat early stage and therefore is subject
@@ -63,7 +63,7 @@ created documents but you can easily specify any format you wish.
 Installation
 ============
 
-Yewdoc works with Python 2.7. 
+Yewdocs works with Python 2.7. 
 
 Git clone the repo, cd into the resulting directory and execute the
 install command:
@@ -83,8 +83,8 @@ Create a new document and start editing:
 
     yd create foo
 
-Yewdoc uses the EDITOR environment to determine what editor to
-launch. You can also have yewdoc launch an editor from the host OS and
+Yewdocs uses the EDITOR environment to determine what editor to
+launch. You can also have Yewdocs launch an editor from the host OS and
 let it decide which application handles that file type. This might be
 Atom, Sublime Text or whatever editor you choose to associate with the
 file type depending on your OS.
@@ -121,21 +121,21 @@ List all your documents:
 
     yd ls
 
-List all documents on the server (if you are using the Yewdoc server):
+List all documents on the server (if you are using the Yewdocs server):
 
     yd ls -r
 
-Sync your documents to/from a Yewdoc server:
+Sync your documents to/from a Yewdocs server:
 
     yd sync
 
-You must have previously registered with the Yewdoc server. This is
+You must have previously registered with the Yewdocs server. This is
 entirely optional. It will also sync tags and document/tag
 associations. See below under Configuration.
 
 You can symbolically link a file:
 
-    yd take ~/.tmux.conf
+    yd take ~/.tmux.conf --symlink
 
 the file `.tmux.conf` will become a managed document but any
 operations on the file will modify the file in-place. This can be very
@@ -222,7 +222,62 @@ Or use the full id:
     yd describe 3ccc3fcc-5acc-11e5-b07d-ac87a33b7daa
 
 
-Yewdoc Server Configuration
+Local Web Browser
+=================
+
+You can view a set of documents associated with a tag or tags in a web browser:
+
+    yd browse -t blog
+
+This will try to convert all documents tagged with 'blog' to html and load them in the default browser. The default
+
+    yd browse my_template.j2 -t blog
+
+where `my_template.j2` is a Jinja template (http://jinja.pocoo.org/). Without this the default template is used. This has a left sidebar for navigating documents. 
+
+Overview of Commands
+====================
+
+For local files the following commands are available:
+
+```
+attach       Take a file and put into media folder.
+browse       Convert to html and attempt to load in web...
+context      Set or unset a tag context filter for listings.
+convert      Convert to destination_format and print to...
+create       Create a new document.
+delete       Delete a document.
+describe     Show document details.
+diff         Compare two documents.
+edit         Edit a document.
+find         Search for spec in contents of docs.
+global_pref  Show or set global preferences.
+head         Send start of document to stdout.
+kind         Change kind of document.
+ls           List documents.
+read         Get input from stdin and either create a new...
+rename       Rename a document.
+show         Send contents of document to stdout.
+status       Print info about current setup.
+tag          Manage tags.
+tail         Send end of document to stdout.
+take         Import a file as a document.
+user_pref    Show or set global preferences.
+```
+
+Remote commands:
+
+```
+configure    Get configuration information from user.
+ping         Ping server.
+push         Push all documents to the server.
+register     Try to get a user account on remote.
+sync         Pushes local docs and pulls docs from remote.
+api          Get API of the server.
+```
+
+
+Yewdocs Server Configuration
 ===========================
 
 No configuration is necessary to work locally without mirroring
@@ -231,8 +286,7 @@ changes to the cloud (to a server through an internet connection).
 We have a cloud-based install of related project that can allow you to
 manage a mirrored version of your text document repository with a web
 interface. This is currently in an experimental mode and no guarantee
-that it will work. This will be open-source when we have feel
-confident that it's working properly. The location for this:
+that it will work. The location for this:
 
     https://doc.yew.io
 
@@ -240,7 +294,7 @@ If you want to have changes saved remotely, you need to provide
 certain information, like:
 
 * Email: your email that has not been registered to Remote
-* URL: the endpoint for the remote yewdoc service. Currently, that is just https://doc.yew.io
+* URL: the endpoint for the remote Yewdocs service. Currently, that is just https://doc.yew.io
 * username: this is the username you desire to have on the remote service
 * first name: first name (optional)
 * last name: your last name (optional)
@@ -253,7 +307,7 @@ Or immediately attempt to register:
   
     yd register
 
-In both cases, Yewdoc will collect the required information from you. 
+In both cases, Yewdocs will collect the required information from you. 
 
 In the case that a registration succeeds, you will have set a token
 that forthwith enables transparent access to the remote server. The
