@@ -2182,7 +2182,7 @@ def register():
     """Try to get a user account on remote."""
 
     # first make sure we are configured
-    #_configure()
+    _configure()
 
     # next make sure we have a connection to the server
     if not yew.remote.unauthenticated_ping():
