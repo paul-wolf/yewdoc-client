@@ -326,6 +326,17 @@ class Remote(object):
             click.echo("Could not connect to server")
             return None
 
+    def authenticate_user(self, data):
+        """Authenticate a user that should exist on remote."""
+        if self.offline:
+            raise OfflineException()
+        try:
+            url = "{}/doc/authenticate_user/".format(self.url)
+            return requests.post(url, data=data, verify=self.verify)
+        except ConnectionError:
+            click.echo("Could not connect to server")
+            return None
+
     def ping(self):
         """Call remote ping() method."""
         if self.offline:
@@ -2175,7 +2186,45 @@ def configure():
 
 def auth():
     """Authenticate with remote and populate local data."""
-    pass
+
+    username = click.prompt("Enter username ",
+                            default=yew.store.get_user_pref("location.default.username"),
+                            type=str)
+    password = click.prompt("Enter password ", hide_input=True, type=str)
+    
+    current_username = yew.store.get_user_pref("location.default.username")
+    if not current_username == username:
+        if click.confirm("You entered a username that does not match the current system username. Continue?"):
+            pass
+        else:
+            sys.exit(0)
+        
+    r = yew.remote.authenticate_user(data={
+        "username": username,
+        "password": password,
+    })
+    if r.status_code == 200:
+        data = r.json()
+        yew.store.put_user_pref("location.default.username", username)
+        yew.store.put_user_pref("location.default.password", password)
+        yew.store.put_user_pref("location.default.email", data['email'])
+        yew.store.put_user_pref("location.default.first_name", data['first_name'])
+        yew.store.put_user_pref("location.default.last_name", data['last_name'])
+        yew.store.put_user_pref("location.default.token", data['token'])
+        click.echo("You authenticated successfully. Try `yd sync`.")
+    else:
+        click.echo("Something went wrong")
+        click.echo("status code: {}".format(r.status_code))
+        click.echo("response: {}".format(r.content))
+    
+@cli.command()
+def authenticate():
+    """Authenticate with remote and get user token.
+
+
+    """
+
+    auth()
     
 @cli.command()
 def register():
