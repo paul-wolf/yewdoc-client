@@ -30,18 +30,18 @@ markdown, conf, etc. It offers these features:
 * Integration with other command line utilities: as just another shell
   utility, you can do normal shell piping in and out, grep, etc.
  
-The target users are those who prefer to work in a single context,
-such as command line without the overhead of switching back and forth
-between a shell and the host OS GUI. When working regularly on the
-command line, it is a considerable annoyance to have to break out to
-use the host OS file management app to find files and use the
-mouse. Yewdocs lets the user seamlessly browse and operate on her
-collection of text files. These can be snippets, larger documents,
-notes, etc. Exporting to other formats is easy and natural.
+The target users are those who prefer to work on the command line
+without the overhead of switching back and forth between a shell and
+the host OS GUI. When working regularly on the command line, it is a
+considerable annoyance to have to break out to use the host OS file
+management app to find files and use the mouse. Yewdocs lets the user
+seamlessly browse and operate on her collection of text files. These
+can be snippets, larger documents, notes, etc. Exporting to other
+formats is easy and natural.
 
 A major design goal is to reduce the mental overhead of finding
 files. Once a file is managed by Yewdocs, it is very easy to perform
-operations like editing on it without needing to remember the exact
+operations like editing it without needing to remember the exact
 name or location. Documents can be managed by Yewdocs either within its
 own repository or in-place as linked documents.
 
@@ -55,23 +55,33 @@ shells.
 
 You can edit and manage any kind of text file, txt, rst, md, conf,
 etc. Yewdocs does have a slight prejudice towards Markdown for newly
-created documents but you can easily specify any format you wish.
-
-> This project is at a somewhat early stage and therefore is subject
-> to change.
+created documents but you can easily specify any format you wish or
+convert a file to another format after creating it.
 
 Installation
 ============
 
-Yewdocs works with Python 2.7. 
-
-Git clone the repo, cd into the resulting directory and execute the
-install command:
-
-    pip install --editable .
+Yewdocs works with Python 2.7, 3.3, 3.4, 3.5, 3.6
 
 > Currently pandoc must be installed following the instructions specific
 > to your operating system.
+
+Macos:
+
+    brew install pandoc
+
+Ubuntu:
+
+    sudo apt-get install pandoc
+
+Git clone the repo:
+
+    git clone git@github.com:paul-wolf/yewdoc-client.git
+
+cd into the resulting directory and execute the install command:
+
+    cd yewdoc-client
+    pip install --editable .
 
 That should be all that is required. We will later make a PyPi module
 available.
@@ -268,6 +278,7 @@ user_pref    Show or set global preferences.
 Remote commands:
 
 ```
+authenticate Authenticate with remote and get token.
 configure    Get configuration information from user.
 ping         Ping server.
 push         Push all documents to the server.

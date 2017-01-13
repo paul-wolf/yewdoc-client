@@ -2193,7 +2193,7 @@ def auth():
     password = click.prompt("Enter password ", hide_input=True, type=str)
     
     current_username = yew.store.get_user_pref("location.default.username")
-    if not current_username == username:
+    if current_username and not current_username == username:
         if click.confirm("You entered a username that does not match the current system username. Continue?"):
             pass
         else:
@@ -2219,8 +2219,12 @@ def auth():
     
 @cli.command()
 def authenticate():
-    """Authenticate with remote and get user token.
+    """Authenticate with remote and get token.
 
+    You'll be asked for a username/password.
+    If you are successfully authenticated by remote, 
+    the local system will be configured with the account
+    of username. 
 
     """
 
@@ -2228,7 +2232,7 @@ def authenticate():
     
 @cli.command()
 def register():
-    """Try to get a user account on remote."""
+    """Try to setup a new user account on remote."""
 
     # first make sure we are configured
     _configure()
