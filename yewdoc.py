@@ -107,7 +107,8 @@ def get_sha_digest(s):
     """Generate digest for s.
 
     Trim final whitespace.
-    Make sure it's utf-8.
+    Convert to byte string.
+    Produce digest.
 
     """
     s = s.rstrip()
@@ -272,6 +273,9 @@ class Remote(object):
         self.basic_auth_pass = "yewleaf"
         self.basic_auth = False
 
+        if not self.url:
+            self.url = "https://doc.yew.io"
+        
         # if store thinks we are offline
         self.offline = store.offline
 
@@ -1321,7 +1325,7 @@ def tag(tagname, docname, list_docs, create, untag):
 @click.option('--tag', '-t', required=False, help="Set a tag as a filter.")
 @click.option('--clear', '-c', is_flag=True, required=False, help="Clear the context.")
 def context(tag, clear):
-    """Set or unset a context.
+    """Set or unset a tag context filter for listings.
 
     A context is essentially a filter. When a context, like a tag is
     set, operations that list documents will filter the
@@ -1605,7 +1609,7 @@ def ls(name, info, remote, humanize, tags):
 def pdoc(doc, status, verbose):
     p = verbose
     if status == Remote.STATUS_REMOTE_SAME and not verbose:
-        pass
+        print(".", end="")
     else:
         click.echo(doc.name.ljust(50), nl=False)
         msg = Remote.STATUS_MSG[status]
@@ -1656,12 +1660,12 @@ def sync(name, force, prune, verbose):
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_REMOTE_OLDER:
             # click.echo("push newer content to remote : %s %s" % (doc.short_uid(), doc.name))
-            r = yew.remote.push_doc(doc)
-            if r.status_code == 200:
+            status_code = yew.remote.push_doc(doc)
+            if status_code == 200:
                 pdoc(doc, c, v)
                 # click.secho('pushed successfully', fg='green')
             else:
-                click.secho('pushed failed', fg='red')                
+                click.secho('push failed: {}, {}'.format(doc,status_code), fg='red')                
                 
             remote_done.append(doc.uid)
         elif c == Remote.STATUS_DOES_NOT_EXIST:
@@ -1919,9 +1923,16 @@ def ping():
     if not r:
         sys.exit(1)
     if r.status_code == 200:
-        sdt = dateutil.parser.parse(json.loads(r.content))
+        print(r.content)
+        sdt = dateutil.parser.parse(r.json())
         click.echo("Server time  : %s" % sdt)
-        click.echo("Skew         : %s" % str(datetime.datetime.now() - sdt))
+        click.echo("Here time    : {}".format(datetime.datetime.now()))
+        n = datetime.datetime.now()
+        if n > sdt:
+            d = n - sdt
+        else:
+            d = sdt - n
+        click.echo("Skew         : %s" % str(d))
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
@@ -1934,7 +1945,9 @@ def api():
         sys.exit(1)
     if r.status_code == 200:
         # content should be server time
-        click.echo(r.content)
+        s = json.dumps(r.json(), sort_keys=True,
+                       indent=4, separators=(',', ': '))
+        click.echo(s)
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
@@ -2093,7 +2106,7 @@ def take(path, kind, force, symlink):
             if not force:
                 click.echo("A document with this title exists already")
             if force or click.confirm("Overwrite existing document: %s ?" % docs[0].name, abort=True):
-                docs[0].put_content(unicode(content))
+                docs[0].put_content(content)
                 yew.remote.push_doc(docs[0])
                 sys.exit(0)
 
@@ -2105,7 +2118,7 @@ def take(path, kind, force, symlink):
         click.echo("Symlinked: %s" % doc.uid)
     else:
         doc = yew.store.create_document(title, 'default', kind)
-        doc.put_content(unicode(content))
+        doc.put_content(content)
     yew.remote.push_doc(doc)
 
 
@@ -2160,7 +2173,10 @@ def configure():
     """Get configuration information from user."""
     _configure()
 
-
+def auth():
+    """Authenticate with remote and populate local data."""
+    pass
+    
 @cli.command()
 def register():
     """Try to get a user account on remote."""
