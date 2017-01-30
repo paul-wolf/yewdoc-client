@@ -40,10 +40,10 @@ can be snippets, larger documents, notes, etc. Exporting to other
 formats is easy and natural.
 
 A major design goal is to reduce the mental overhead of finding
-files. Once a file is managed by Yewdocs, it is very easy to perform
-operations like editing it without needing to remember the exact
-name or location. Documents can be managed by Yewdocs either within its
-own repository or in-place as linked documents.
+files. Once a file is managed by Yewdocs, it is very to perform
+operations like editing it without needing to remember the exact name
+or location. Documents can be managed by Yewdocs either within its own
+repository or in-place as linked documents.
 
 You are not forced to choose between your favourite non-text editor
 and shell editor. You can just as well use Sublime, Atom or other
@@ -63,16 +63,20 @@ Installation
 
 Yewdocs works with Python 2.7, 3.3, 3.4, 3.5, 3.6
 
-> Currently pandoc must be installed following the instructions specific
-> to your operating system.
+Currently pandoc must be installed following the instructions specific
+to your operating system.
 
-Macos:
+MacOS:
 
     brew install pandoc
 
 Ubuntu:
 
     sudo apt-get install pandoc
+
+Windows:
+
+    <http://pandoc.org/installing.html>
 
 Git clone the repo:
 
@@ -337,4 +341,12 @@ location.default.first_name = Paul
 location.default.last_name = Wolf
 location.default.token = fe0be94826b451bba72j54tjnwlr2jrn2o5cd9b
 ```
+
+Limitations
+===========
+
+* Images are not managed in a usable way. It's possible to attach files to a document, but this is not at this time a uesful feature. 
+
+* References from one document to another. That is a wiki-type feature I would like to support. 
+
 

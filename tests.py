@@ -2,8 +2,9 @@
 from __future__ import print_function
 
 import os 
+import shutil
 import unittest
-
+import mock
 import click
 from click.testing import CliRunner
 
@@ -11,19 +12,44 @@ from yewdoc import YewStore, cli, ls, api, attach, browse, configure, context, c
     describe, diff, edit, find, global_pref, head, kind, ls, ping, push, read, register, \
     rename, show, status, sync, tag, tail, take, user_pref
 
-import shutil
+import yewdoc
 
-class TestYewocsClient(unittest.TestCase):
+
+
+class MockRemote(object): 
+    def authenticate_user(self, data): 
+        return MockResponse({u'username': 'paul',
+                             u'first_name': u'Paul',
+                             u'last_name': u'Wolf',
+                             u'email': u'paul.wolf@blah.com',
+                             u'token': u'b9512423d9ffa2312bdcb3d5c60f7db26d5b08a1'}, 200)
+class MockStore(object):
+    def put_user_pref(self, s, d):
+        pass
+
+class MockYew(object):
+    remote = MockRemote()
+    store = MockStore()
+            
+class MockResponse:
+        def __init__(self, json_data, status_code):
+            self.json_data = json_data
+            self.status_code = status_code
+
+        def json(self):
+            return self.json_data
+
+class TestYewdocsClient(unittest.TestCase):
 
     def setUp(self):
-        self.user = 'test_user'
-        test_path = "{}/.yew.d/{}".format(os.path.expanduser("~"), self.user)
+        self.username = 'test_user'
+        test_path = "{}/.yew.d/{}".format(os.path.expanduser("~"), self.username)
         
         # we delete entire environment for each test
         if os.path.exists(test_path):
             shutil.rmtree(test_path)
             
-        self.store = YewStore(username=self.user)
+        self.store = YewStore(username=self.username)
 
     def create_document(self, title, content="my text", kind='md'):
         content = content
@@ -135,6 +161,13 @@ class TestYewocsClient(unittest.TestCase):
         result = runner.invoke(cli, ['--user=test_user', 'user_pref'])
         assert result.exit_code == 0
         #print(result.output)
+
+
+    def test_authenticate(self):
+        yewdoc.yew = MockYew()
+        status_code = yewdoc._authenticate('blah','blah')
+        assert status_code == 200
+        
 
 
 if __name__ == '__main__':

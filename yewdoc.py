@@ -1622,7 +1622,7 @@ def pdoc(doc, status, verbose):
     if status == Remote.STATUS_REMOTE_SAME and not verbose:
         print(".", end="")
     else:
-        click.echo(doc.name.ljust(50), nl=False)
+        click.echo(doc.name, nl=False)
         msg = Remote.STATUS_MSG[status]
         click.secho(msg, fg='green')
     
@@ -2045,13 +2045,14 @@ def browse(name, template, list_docs, tags):
 
 @cli.command()
 @click.argument('name', required=False)
-@click.argument('destination_format', required=True)
+@click.argument('destination_format', required=False)
+@click.argument('destination_file', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
 @click.option('--formats', '-f', is_flag=True, required=False)
-def convert(name, destination_format, list_docs, formats):
-    """Convert to destination_format and print to stdout."""
+def convert(name, destination_format, destination_file, list_docs, formats):
+    """Convert to destination_format and print to stdout or save to file if provided."""
 
-    if formats:
+    if formats or not destination_format:
         formats = pypandoc.get_pandoc_formats()
         click.echo("Input formats:")
         for f in formats[0]:
@@ -2066,10 +2067,21 @@ def convert(name, destination_format, list_docs, formats):
     # click.echo(doc.kind)
     # click.echo(destination_format)
 
-    dest = pypandoc.convert(doc.get_content(),
-                            format=doc.kind,
-                            to=destination_format)
-    click.echo(dest)
+    if destination_format in ['docx', 'pdf', 'odt',]:
+         destination_file = u"{}.{}".format(slugify(doc.name), destination_format)
+    
+    if destination_file:
+        dest = pypandoc.convert(doc.get_content(),
+                                format=doc.kind,
+                                to=destination_format,
+                                outputfile=destination_file
+        )
+        click.echo(destination_file)
+    else:
+        dest = pypandoc.convert(doc.get_content(),
+                                format=doc.kind,
+                                to=destination_format)
+        click.echo(dest)
     sys.stdout.flush()
 
 
@@ -2184,21 +2196,9 @@ def configure():
     """Get configuration information from user."""
     _configure()
 
-def auth():
+def _authenticate(username, password):
     """Authenticate with remote and populate local data."""
 
-    username = click.prompt("Enter username ",
-                            default=yew.store.get_user_pref("location.default.username"),
-                            type=str)
-    password = click.prompt("Enter password ", hide_input=True, type=str)
-    
-    current_username = yew.store.get_user_pref("location.default.username")
-    if current_username and not current_username == username:
-        if click.confirm("You entered a username that does not match the current system username. Continue?"):
-            pass
-        else:
-            sys.exit(0)
-        
     r = yew.remote.authenticate_user(data={
         "username": username,
         "password": password,
@@ -2213,10 +2213,9 @@ def auth():
         yew.store.put_user_pref("location.default.token", data['token'])
         click.echo("You authenticated successfully. Try `yd sync`.")
     else:
-        click.echo("Something went wrong")
-        click.echo("status code: {}".format(r.status_code))
-        click.echo("response: {}".format(r.content))
-    
+        click.echo("ERORR: {}, {}".format(r.status_code, r.content))
+    return r.status_code
+
 @cli.command()
 def authenticate():
     """Authenticate with remote and get token.
@@ -2227,8 +2226,18 @@ def authenticate():
     of username. 
 
     """
-
-    auth()
+    username = click.prompt("Enter username ",
+                            default=yew.store.get_user_pref("location.default.username"),
+                            type=str)
+    password = click.prompt("Enter password ", hide_input=True, type=str)
+    
+    current_username = yew.store.get_user_pref("location.default.username")
+    if current_username and not current_username == username:
+        if click.confirm("You entered a username that does not match the current system username. Continue?"):
+            pass
+        else:
+            sys.exit(0)
+    _authenticate(username, password)
     
 @cli.command()
 def register():
