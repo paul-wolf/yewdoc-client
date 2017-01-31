@@ -470,6 +470,10 @@ class Remote(object):
         """Get document from server and store locally."""
         pass
 
+    def remote_configured(self):
+        token = self.store.get_user_pref('location.default.token')
+        return True if token else False
+    
     def push_doc(self, doc):
         """Serialize and send document.
 
@@ -479,6 +483,10 @@ class Remote(object):
         """
         if self.offline:
             raise OfflineException()
+        
+        if not self.remote_configured():
+            return Remote.STATUS_NO_CONNECTION
+        
         try:
             status = self.doc_status(doc.uid)
         except RemoteException:
@@ -501,8 +509,10 @@ class Remote(object):
             # create a new one
             url = "%s/api/document/" % self.url
             r = requests.post(url, data=data, headers=self.headers, verify=self.verify)
+
             if not r.status_code == 200:
-                print(r.text)
+                print(r.content)
+
         return status
 
     def register(self, username, password, email, first_name, last_name):
