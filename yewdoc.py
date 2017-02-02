@@ -66,8 +66,8 @@ def slugify(value):
     and converts spaces to hyphens.
     """
     import unicodedata
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
-    value = unicode(re.sub('[^\w\s-]', '', value).strip().lower())
+    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode()
+    value = re.sub('[^\w\s-]', '', value).strip().lower()
     #... re.sub('[-\s]+', '-', value)
     value = '-'.join(value.split()).lower()
     return value
