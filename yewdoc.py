@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+"""
+    Yewdocs
+    ~~~~~~~
+
+    Yewdocs is a personal document manager that makes creating and
+editing text documents from the command line easier than using an
+editor and filesystem commands.
+
+    :copyright: (c) 2017 by Paul Wolf.
+    :license: BSD, see LICENSE for more details.
+
+"""
+
 from __future__ import print_function
 import os
 import sys
@@ -1429,7 +1442,7 @@ def document_menu(docs, multiple=False):
         return l  # returning a list of docs!!
     else:
         v = click.prompt('Select document', type=int)
-        if not v in range(len(docs)):
+        if v not in range(len(docs)):
             print("Choice not in range")
             sys.exit(1)
     return docs[v]
