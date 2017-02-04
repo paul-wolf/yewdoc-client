@@ -1469,7 +1469,8 @@ def get_document_selection(name, list_docs, multiple=False):
         if len(docs) == 1:
             return docs[0]
         return document_menu(docs, multiple)
-    return doc
+    
+    return None
 
 
 @cli.command()
