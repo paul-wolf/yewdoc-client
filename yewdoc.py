@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import os
-import io
 import sys
 import uuid
 import traceback
@@ -21,15 +20,14 @@ import datetime
 import pytz
 import tzlocal
 import markdown
-import webbrowser
-import tempfile
-import re
-import string
 import difflib
 import re
 import humanize as h
 from jinja2 import Template
 
+__version__ = '0.1.0'
+__author__ = 'Paul Wolf'
+__license__ = 'BSD'
 
 try:
     import pypandoc
@@ -515,21 +513,6 @@ class Remote(object):
 
         return status
 
-    def register(self, username, password, email, first_name, last_name):
-        """Register a remote user.
-
-        Raise exceptions if user exists or missing or invalid data.
-
-        """
-        if self.offline:
-            raise OfflineException()
-        data = {
-            "username": username,
-            "password": password,
-            "email": email,
-            "first_name": first_name,
-            "last_name": last_name,
-        }
 
     def get_token(self, remote_username, password):
         """Get and store token for a registered user.
@@ -550,7 +533,7 @@ class Remote(object):
             raise OfflineException()
         
         url = "%s/api/tag_list/" % (self.url)
-        r = requests.post(url, data=json.dumps(tag_data), headers=self.headers, verify=self.verify)
+        return requests.post(url, data=json.dumps(tag_data), headers=self.headers, verify=self.verify)
 
     def push_tag_associations(self):
         """Post tag associations to server.
@@ -835,7 +818,6 @@ class YewStore(object):
         """Get tag associations.
 
         """
-        tags = []
         c = self.conn.cursor()
         s = "SELECT * FROM tagdoc"
         c.execute(s)
@@ -937,7 +919,6 @@ class YewStore(object):
 
     def get_globals(self):
         """Get all global prefs."""
-        v = None
         c = self.conn.cursor()
         sql = "SELECT key,value FROM global_prefs"
         c.execute(sql)
@@ -1101,8 +1082,7 @@ class YewStore(object):
         if tag_objects:
             tags = ",".join(["'" + tag.tagid + "'" for tag in tag_objects])
             where_tags = " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
-        doc = None
-        sql = "select uid,name,location,kind FROM document "
+        sql = "SELECT uid, name, location, kind FROM document "
         if where_tags:
             sql += where_tags
         c = self.conn.cursor()
@@ -1152,7 +1132,7 @@ class YewStore(object):
 
         if not is_uuid(uid):
             raise Exception("Not a valid uid.")
-        doc = None
+
         sql = "SELECT uid,name,location,kind FROM document WHERE uid = ?"
         c = self.conn.cursor()
         c.execute(sql, (uid,))
@@ -1238,11 +1218,10 @@ def cli(user):
     yew = YewCLI(username=user)
 
 
-
-
 @cli.command()
 def status():
     """Print info about current setup."""
+    click.echo("Version  : %s" % __version__)
     click.echo("User     : %s" % yew.store.username)
     click.echo("Storage  : %s" % yew.store.get_storage_directory())
     click.echo("Offline  : %s" % yew.store.offline)
@@ -1279,12 +1258,6 @@ def create(name, location, kind):
 def get_user_email():
     """Get user email from prefs or stdin."""
     self.url = self.store.get_user_pref('url')
-
-
-#@cli.command()
-#def make_db():
-#    self.make_db(yew.store.yewdb_path)
-
 
 @cli.command()
 @click.argument('tagname', required=False)
@@ -1410,8 +1383,6 @@ def user_pref(name, value):
     Providing a value will set to that value.
 
     """
-    # get user first of all
-    username = yew.store.get_global('username')
     if not name:
         for k in YewStore.user_preferences:
             v = yew.store.get_user_pref(k)
@@ -1628,7 +1599,8 @@ def ls(name, info, remote, humanize, tags):
         click.echo('')
 
 def pdoc(doc, status, verbose):
-    p = verbose
+    """Print status to stdout."""
+
     if status == Remote.STATUS_REMOTE_SAME and not verbose:
         print(".", end="")
     else:
@@ -1660,7 +1632,6 @@ def sync(name, force, prune, verbose):
 
     # get local docs
     docs_local = yew.store.get_docs()
-    docs_remote = yew.remote.get_docs()
     remote_done = []
 
     for doc in docs_local:
@@ -2019,7 +1990,7 @@ def browse(name, template, list_docs, tags):
         if doc.kind == 'md':
             html = markdown.markdown(doc.get_content())
         else:
-            if not doc.kind in input_formats:
+            if doc.kind not in input_formats:
                 kind = 'md'
             else:
                 kind = doc.kind
@@ -2078,14 +2049,13 @@ def convert(name, destination_format, destination_file, list_docs, formats):
     # click.echo(destination_format)
 
     if destination_format in ['docx', 'pdf', 'odt',]:
-         destination_file = u"{}.{}".format(slugify(doc.name), destination_format)
+        destination_file = u"{}.{}".format(slugify(doc.name), destination_format)
     
     if destination_file:
         dest = pypandoc.convert(doc.get_content(),
                                 format=doc.kind,
                                 to=destination_format,
-                                outputfile=destination_file
-        )
+                                outputfile=destination_file)
         click.echo(destination_file)
     else:
         dest = pypandoc.convert(doc.get_content(),
@@ -2344,6 +2314,6 @@ def read(name, list_docs, location, kind, create, append):
     else:
         s = doc.get_content() + content
         doc.put_content(s)
-
+        
 if __name__ == '__main__':
     cli()
