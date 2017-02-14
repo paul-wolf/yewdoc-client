@@ -2,8 +2,11 @@ from setuptools import setup
 
 install_requires =[]
 with open('requirements.txt') as fh:
-    [install_requires.append(r.strip()) for r in fh if len(r.strip()) >0]
-    
+    for r in fh:
+        r = r.strip()
+        if r:
+            install_requires.append(r)
+            
 setup(
     name='yd',
     version='0.1.0',
