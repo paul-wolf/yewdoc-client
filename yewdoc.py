@@ -2058,9 +2058,9 @@ def convert(name, destination_format, destination_file, list_docs, formats):
         sys.exit(0)
 
     doc = get_document_selection(name, list_docs)
-    # click.echo(doc.name)
-    # click.echo(doc.kind)
-    # click.echo(destination_format)
+    click.echo(doc.name)
+    click.echo(doc.kind)
+    click.echo(destination_format)
 
     if destination_format in ['docx', 'pdf', 'odt',]:
         destination_file = u"{}.{}".format(slugify(doc.name), destination_format)

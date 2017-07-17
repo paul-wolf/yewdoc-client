@@ -13,7 +13,7 @@ setup(
         "python-dateutil==2.4.2",
         "pytz==2015.4",
         "requests==2.7.0",
-        "six==1.9.0",
+        "six>=1.9.0",
         "StringGenerator==0.1.9",
         "tzlocal==1.2",
         "wheel==0.24.0",
