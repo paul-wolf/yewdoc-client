@@ -1618,9 +1618,11 @@ def pdoc(doc, status, verbose):
     if status == Remote.STATUS_REMOTE_SAME and not verbose:
         print(".", end="")
     else:
+        click.echo("", nl=True)        
         click.echo(doc.name, nl=False)
         msg = Remote.STATUS_MSG[status]
-        click.secho(msg, fg='green')
+        click.echo(": ", nl=False)
+        click.secho(msg, fg='yellow')
     
 @cli.command()
 @click.argument('name', required=False)
