@@ -1651,51 +1651,54 @@ def sync(name, force, prune, verbose):
     remote_done = []
 
     for doc in docs_local:
-        c = yew.remote.doc_status(doc.uid)
-        if c == Remote.STATUS_REMOTE_SAME:
-            pdoc(doc, c, v)
-            remote_done.append(doc.uid)
-        elif c == Remote.STATUS_REMOTE_NEWER:
-            # click.echo("get newer content from remote: %s %s" % (doc.short_uid(), doc.name))
-            
-            remote_doc = yew.remote.fetch(doc.uid)
-            # a dict
-            doc.put_content(remote_doc['content'])
-            if not remote_doc['title'] == doc.name:
-                yew.store.rename_doc(doc, remote_doc['title'])
-            # click.secho("got remote", fg='green')
-            pdoc(doc, c, v)
-            remote_done.append(doc.uid)
-        elif c == Remote.STATUS_REMOTE_OLDER:
-            # click.echo("push newer content to remote : %s %s" % (doc.short_uid(), doc.name))
-            status_code = yew.remote.push_doc(doc)
-            if status_code == 200:
+        try:
+            c = yew.remote.doc_status(doc.uid)
+            if c == Remote.STATUS_REMOTE_SAME:
                 pdoc(doc, c, v)
-                # click.secho('pushed successfully', fg='green')
-            else:
-                click.secho('push failed: {}, {}'.format(doc,status_code), fg='red')                
-                
-            remote_done.append(doc.uid)
-        elif c == Remote.STATUS_DOES_NOT_EXIST:
-            # click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
-            print(yew.remote.push_doc(doc))
-            if r.status_code == 200:
-                # click.secho('pushed successfully', fg='green')
-                pdoc(doc, c, v)
-            else:
-                click.secho('pushed failed', fg='red')                
-            remote_done.append(doc.uid)
-        elif c == Remote.STATUS_REMOTE_DELETED:
-            # click.echo("remote was deleted           : %s %s" % (doc.short_uid(), doc.name))
-            if prune:
-                yew.store.delete_document(doc)
-                # click.secho("pruned local", fg='green')
-                pdoc(doc, c, v)
-            else:
-                pdoc(doc, c, v)
-        else:
-            raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
+                remote_done.append(doc.uid)
+            elif c == Remote.STATUS_REMOTE_NEWER:
+                # click.echo("get newer content from remote: %s %s" % (doc.short_uid(), doc.name))
 
+                remote_doc = yew.remote.fetch(doc.uid)
+                # a dict
+                doc.put_content(remote_doc['content'])
+                if not remote_doc['title'] == doc.name:
+                    yew.store.rename_doc(doc, remote_doc['title'])
+                # click.secho("got remote", fg='green')
+                pdoc(doc, c, v)
+                remote_done.append(doc.uid)
+            elif c == Remote.STATUS_REMOTE_OLDER:
+                # click.echo("push newer content to remote : %s %s" % (doc.short_uid(), doc.name))
+                status_code = yew.remote.push_doc(doc)
+                if status_code == 200:
+                    pdoc(doc, c, v)
+                    # click.secho('pushed successfully', fg='green')
+                else:
+                    click.secho('push failed: {}, {}'.format(doc,status_code), fg='red')                
+
+                remote_done.append(doc.uid)
+            elif c == Remote.STATUS_DOES_NOT_EXIST:
+                # click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
+                print(yew.remote.push_doc(doc))
+                if r.status_code == 200:
+                    # click.secho('pushed successfully', fg='green')
+                    pdoc(doc, c, v)
+                else:
+                    click.secho('pushed failed', fg='red')                
+                remote_done.append(doc.uid)
+            elif c == Remote.STATUS_REMOTE_DELETED:
+                # click.echo("remote was deleted           : %s %s" % (doc.short_uid(), doc.name))
+                if prune:
+                    yew.store.delete_document(doc)
+                    # click.secho("pruned local", fg='green')
+                    pdoc(doc, c, v)
+                else:
+                    pdoc(doc, c, v)
+            else:
+                raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
+        except Exception as e:
+            print("An error occured trying to sync {}".format(str(doc)))
+            print(e)
     print('')
 
     remote_docs = yew.remote.get_docs()
