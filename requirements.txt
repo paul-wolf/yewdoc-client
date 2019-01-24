@@ -7,7 +7,7 @@ MarkupSafe==0.23
 mccabe==0.3.1
 pep8==1.5.7
 pyflakes==0.8.1
-pypandoc==0.9.9
+pypandoc
 python-dateutil==2.4.2
 pytz==2015.4
 requests==2.7.0
