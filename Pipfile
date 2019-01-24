@@ -1,0 +1,23 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+click = "*"
+ipython = "*"
+stringgenerator = "*"
+humanize = "*"
+jinja2 = "*"
+markdown = "*"
+python-dateutil = "*"
+pytz = "*"
+requests = "*"
+tzlocal = "*"
+pypandoc = "*"
+yd = {editable = true,path = "."}
+
+[requires]
+python_version = "3.7"
