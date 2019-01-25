@@ -64,13 +64,12 @@ class YewCLI(object):
 
     """
 
-    def __init__(self, username='yewser'):
+    def __init__(self, username=None):
         self.store = YewStore(username=username)
         self.remote = Remote(self.store)
 
-
 @click.group()
-@click.option('--user', default='yewser', help="User name", required=False)
+@click.option('--user', help="User name", required=False)
 def cli(user):
     global yew
     yew = YewCLI(username=user)
@@ -776,7 +775,8 @@ def kind(name, kind, list_docs):
 def ping():
     """Ping server."""
     r = yew.remote.ping()
-    if not r:
+    if r is None:
+        print("No response")
         sys.exit(1)
     if r.status_code == 200:
         print(r.content)
@@ -790,7 +790,7 @@ def ping():
             d = sdt - n
         click.echo("Skew         : %s" % str(d))
         sys.exit(0)
-    click.echo("ERROR HTTP code: %s" % r.status_code)
+    click.echo("ERROR HTTP code={}, msg={}".format(r.status_code, r.content))
 
 
 @cli.command()
@@ -1182,4 +1182,8 @@ def read(name, list_docs, location, kind, create, append):
 @cli.command()
 def info():
     print("Python version: ", sys.version)
+    print("username: {}".format(yew.store.username))
+    print("doc store: {}".format(yew.store.get_user_directory()))
+    counts = yew.store.get_counts()
+    print("documents={}, tags={}".format(counts['documents'], counts['tags']))
     

@@ -20,7 +20,8 @@ import tzlocal
 import markdown
 import difflib
 import re
-
+import configparser
+ 
 from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
                                           err, is_uuid, is_short_uuid, get_short_uid,
                                           delete_directory, get_sha_digest, to_utc,
@@ -186,6 +187,38 @@ class YewStore(object):
 
     DEFAULT_USERNAME = 'yewser'
 
+    def get_username(self, username=None):
+        """Return username.
+
+        Try to get a username that determines the repo of docs.
+
+        Try to get it 
+           from the caller.
+           from the environment
+           from a properties file ~/.yew
+           user the default constant 'yewser'
+
+        """
+        
+        home = expanduser("~")
+        file_path = os.path.join(home, '.yew')
+
+        if username:
+            return username
+        elif os.getenv('YEWDOC_USER'):
+            username = os.getenv('YEWDOC_USER')
+        else:
+            config = configparser.ConfigParser()     
+            with open(file_path, 'r') as f:
+               s = f.read()
+               config.read_string(s)
+            try:
+                username = config['Yewdoc']['username']
+            except Exception as e:
+               pass
+           
+        return username if username else YewStore.DEFAULT_USERNAME
+    
     def get_user_directory(self):
         """Get the directory for the current local user.
 
@@ -203,10 +236,7 @@ class YewStore(object):
     def __init__(self, username=None):
         """Make sure storage is setup."""
 
-        if not username:
-            self.username = YewStore.DEFAULT_USERNAME
-        else:
-            self.username = username
+        self.username = self.get_username(username)
         yew_dir = self.get_user_directory()
         self.yewdb_path = os.path.join(yew_dir, 'yew.db')
         self.conn = self.make_db(self.yewdb_path)
@@ -295,6 +325,20 @@ class YewStore(object):
         conn.commit()
         return conn
 
+    def get_counts(self):
+        data = {}
+        
+        c = self.conn.cursor()
+        c.execute("SELECT count(*) FROM document;")
+        row = c.fetchone()
+        data["documents"] = row[0]
+        
+        c.execute("SELECT count(*) FROM tag;")
+        row = c.fetchone()
+        data["tags"] = row[0]
+        
+        return data
+    
     def get_or_create_tag(self, name):
         """Create a new tag. Make sure it is unique."""
 

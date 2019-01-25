@@ -18,6 +18,8 @@ requests = "*"
 tzlocal = "*"
 pypandoc = "*"
 yd = {editable = true,path = "."}
+autopep8 = "*"
+yapf = "*"
 
 [requires]
 python_version = "3.7"
