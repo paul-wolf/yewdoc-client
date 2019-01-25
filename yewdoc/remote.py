@@ -183,7 +183,6 @@ class Remote(object):
         """Get list of remote documents."""
         if self.offline:
             raise OfflineException()
-        # r = yew.remote.get("document")
         r = self.get("document")
         try:
             response = json.loads(r.content)
