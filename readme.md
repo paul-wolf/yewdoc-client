@@ -76,7 +76,7 @@ Ubuntu:
 
 Windows:
 
-    <http://pandoc.org/installing.html>
+    http://pandoc.org/installing.html
 
 Git clone the repo:
 

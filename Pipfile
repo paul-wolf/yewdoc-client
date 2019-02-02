@@ -20,6 +20,7 @@ pypandoc = "*"
 yd = {editable = true,path = "."}
 autopep8 = "*"
 yapf = "*"
+fs = "*"
 
 [requires]
 python_version = "3.7"
