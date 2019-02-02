@@ -641,7 +641,11 @@ class YewStore(object):
         c.execute(sql, (uid,))
         row = c.fetchone()
         if row:
-            doc = Document(self, row[0], row[1], row[2], row[3])
+            doc = Document(self,  # store
+                           row[0], # uid
+                           row[1], # name
+                           row[2], # location
+                           row[3]) # kind
         c.close()
         return doc
 
@@ -771,6 +775,7 @@ class YewStore(object):
             os.utime(path, None)
 
     def create_document(self, name, location, kind, content=None, symlink_source_path=None):
+        """Create and return a Document object."""
         if not location:
             location = self.location
         uid = str(uuid.uuid1())
@@ -798,6 +803,7 @@ class YewStore(object):
         return self.get_doc(uid)
 
     def import_document(self, uid, name, location, kind, content):
+        """Take copy of content and created a Document record to reference it."""
         if not location:
             location = self.location
         path = os.path.join(self.get_storage_directory(), location, uid)
