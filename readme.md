@@ -40,7 +40,7 @@ can be snippets, larger documents, notes, etc. Exporting to other
 formats is easy and natural.
 
 A major design goal is to reduce the mental overhead of finding
-files. Once a file is managed by Yewdocs, it is very to perform
+files. Once a file is managed by Yewdocs, it is easy to perform
 operations like editing it without needing to remember the exact name
 or location. Documents can be managed by Yewdocs either within its own
 repository or in-place as linked documents.

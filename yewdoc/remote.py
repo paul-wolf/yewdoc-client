@@ -59,11 +59,15 @@ class Remote(object):
         """Get headers used for remote calls."""
         return self.headers
 
-    def get(self, endpoint, data={}):
+    def get(self, endpoint, data={}, timeout=3):
         """Perform get on remote with endpoint."""
         self.check_data()
         url = u"%s/api/%s/" % (self.url, endpoint)
-        return requests.get(url, headers=self.headers, params=data, verify=self.verify)
+        return requests.get(url,
+                            headers=self.headers,
+                            params=data,
+                            verify=self.verify,
+                            timeout=timeout)
 
     def post(self, endpoint, data={}):
         """Perform post on remote."""
@@ -108,12 +112,12 @@ class Remote(object):
             click.echo("Could not connect to server")
             return None
 
-    def ping(self):
+    def ping(self, timeout=3):
         """Call remote ping() method."""
         if self.offline:
             raise OfflineException()
         try:
-            return self.get("ping")
+            return self.get("ping", timeout=timeout)
         except ConnectionError:
             click.echo("Could not connect to server")
             self.offline = True

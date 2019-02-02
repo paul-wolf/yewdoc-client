@@ -207,7 +207,7 @@ class YewStore(object):
             return username
         elif os.getenv('YEWDOC_USER'):
             username = os.getenv('YEWDOC_USER')
-        else:
+        elif os.path.exists(file_path):
             config = configparser.ConfigParser()     
             with open(file_path, 'r') as f:
                s = f.read()

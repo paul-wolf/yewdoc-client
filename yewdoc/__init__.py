@@ -240,15 +240,18 @@ def user_pref(name, value):
     Providing a value will set to that value.
 
     """
-    if not name:
-        for k in YewStore.user_preferences:
-            v = yew.store.get_user_pref(k)
-            click.echo("%s = %s" % (k, v))
-    elif value:
+    print('user-pref, name={}, value={}'.format(name, value))
+    if name and not value:
+        click.echo("%s = %s" % (name, yew.store.get_user_pref(name)))
+    elif name and value:
         # set the user preference
         yew.store.put_user_pref(name, value)
     else:
-        click.echo("%s = %s" % (name, yew.store.get_user_pref(name)))
+        print('asdfasf')
+        for k in YewStore.user_preferences:
+            v = yew.store.get_user_pref(k)
+            click.echo("%s = %s" % (k, v))
+
 
 
 def parse_ranges(s):
@@ -1181,9 +1184,32 @@ def read(name, list_docs, location, kind, create, append):
 
 @cli.command()
 def info():
+    home = expanduser("~")
+    file_path = os.path.join(home, '.yew')
     print("Python version: ", sys.version)
+    print("~/.yew exists: {}".format(os.path.exists(file_path)))
+    print("YEWDOC_USER env: {}".format(os.getenv('YEWDOC_USER')))
     print("username: {}".format(yew.store.username))
     print("doc store: {}".format(yew.store.get_user_directory()))
     counts = yew.store.get_counts()
     print("documents={}, tags={}".format(counts['documents'], counts['tags']))
-    
+    for k in YewStore.user_preferences:
+        if not 'password' in k:
+            v = yew.store.get_user_pref(k)
+            click.echo("%s = %s" % (k, v))
+    prefs = yew.store.get_globals()
+    for pref in prefs:
+        click.echo("%s = %s" % (pref))
+    try:
+        pypandoc.get_pandoc_formats()
+        print("pandoc installed")
+    except Exception as e:
+        print("pandoc not installed: {}".format(e))
+    try:
+        r = yew.remote.ping()
+        if r.status_code == 200:
+            print("remote: {}".format(str(r.content)))
+        else:
+            print("remote: {}".format(r))
+    except Exception as e:
+        print("remote error: {}".format(e))
