@@ -1207,7 +1207,7 @@ def info():
         print("pandoc not installed: {}".format(e))
     try:
         r = yew.remote.ping()
-        if r.status_code == 200:
+        if r is not None and r.status_code == 200:
             print("remote: {}".format(str(r.content)))
         else:
             print("remote: {}".format(r))

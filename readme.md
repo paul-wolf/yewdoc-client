@@ -4,8 +4,8 @@ YEWDOCS
 [![Build Status](https://travis-ci.org/paul-wolf/yewdoc-client.svg?branch=master)](https://travis-ci.org/paul-wolf/yewdoc-client)
 
 Yewdocs is a personal document manager that makes creating and editing
-text documents from the command line easier than using an editor and
-filesystem commands.
+text documents from the command line easier than using only an editor
+and filesystem commands.
 
 Yewdocs is for *text* documents: plain text, restructuredText,
 markdown, conf, etc. It offers these features:
@@ -50,7 +50,7 @@ and shell editor. You can just as well use Sublime, Atom or other
 non-console interfaces for editing Yewdocs documents.
 
 It's possible to maintain text documents on a server and sync to any
-local device that supports Python (>= 2.7) and one of the common *nix
+local device that supports Python (>= 3.4) and one of the common *nix
 shells.
 
 You can edit and manage any kind of text file, txt, rst, md, conf,
@@ -61,10 +61,12 @@ convert a file to another format after creating it.
 Installation
 ============
 
-Yewdocs works with Python 2.7, 3.3, 3.4, 3.5, 3.6
+Yewdocs works with Python >= 3.4
 
-Currently pandoc must be installed following the instructions specific
-to your operating system.
+Make sure you have Python3 installed. Make sure you have pip3 working. 
+
+pandoc must be installed following the instructions specific to your
+operating system.
 
 MacOS:
 
@@ -85,10 +87,14 @@ Git clone the repo:
 cd into the resulting directory and execute the install command:
 
     cd yewdoc-client
-    pip install --editable .
+    pip3 install --editable .
 
 That should be all that is required. We will later make a PyPi module
-available.
+available. Now type:
+
+    yd info
+
+You should see output about settings.
 
 Usage
 =====
@@ -296,14 +302,9 @@ Yewdocs Server Configuration
 ===========================
 
 No configuration is necessary to work locally without mirroring
-changes to the cloud (to a server through an internet connection).
+changes to the cloud (to a server through an internet connection):
 
-We have a cloud-based install of related project that can allow you to
-manage a mirrored version of your text document repository with a web
-interface. This is currently in an experimental mode and no guarantee
-that it will work. The location for this:
-
-    https://doc.yew.io
+<https://doc.yew.io>
 
 If you want to have changes saved remotely, you need to provide
 certain information, like:
@@ -314,15 +315,11 @@ certain information, like:
 * first name: first name (optional)
 * last name: your last name (optional)
 
-You can enter this via the `configure` command: 
+There are three commands:
 
-    yd configure
-
-Or immediately attempt to register: 
-  
-    yd register
-
-In both cases, Yewdocs will collect the required information from you. 
+* yd configure: get information used to configure remote communication
+* yd register: get a new user account with the remote service
+* yd authenticate: authenticate with remote when you already have an account
 
 In the case that a registration succeeds, you will have set a token
 that forthwith enables transparent access to the remote server. The
@@ -341,12 +338,5 @@ location.default.first_name = Paul
 location.default.last_name = Wolf
 location.default.token = fe0be94826b451bba72j54tjnwlr2jrn2o5cd9b
 ```
-
-Limitations
-===========
-
-* Images are not managed in a usable way. It's possible to attach files to a document, but this is not at this time a uesful feature. 
-
-* References from one document to another. That is a wiki-type feature I would like to support. 
 
 
