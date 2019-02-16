@@ -21,6 +21,7 @@ yd = {editable = true,path = "."}
 autopep8 = "*"
 yapf = "*"
 fs = "*"
+python-gnupg = "*"
 
 [requires]
 python_version = "3.7"
