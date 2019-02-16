@@ -43,6 +43,7 @@ from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
 
 from . remote import Remote, RemoteException, OfflineException
 from . store import Tag, TagDoc, Document, YewStore
+from . crypt import encrypt_file, decrypt_file
 
 __version__ = '0.1.0'
 __author__ = 'Paul Wolf'
@@ -374,6 +375,56 @@ def edit(name, list_docs, open_file):
     yew.store.update_recent('yewser', doc)
 
 
+
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.option('--gpghome', '-g', required=False, default='.gnupg',
+              help="Your GnuGPG home directory, defaults to ")
+def encrypt(name, list_docs, gpghome):
+    """Encrypt a document.
+
+    """
+
+    doc = get_document_selection(name, list_docs)
+
+    # if doc is null, we didn't find one, ask if we should create:
+    if not doc:
+        sys.exit(0)
+        
+    email = yew.store.get_user_pref("location.default.email")
+
+    # try to encrypt in place
+    encrypt_file(doc.get_path(), email, gpghome)
+    yew.remote.push_doc(yew.store.get_doc(doc.uid))
+    yew.store.put_user_pref('current_doc', doc.uid)
+    yew.store.update_recent('yewser', doc)
+    
+@cli.command()
+@click.argument('name', required=False)
+@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.option('--gpghome', '-g', required=False, default='.gnupg',
+              help="Your GnuGPG home directory, defaults to ")
+def decrypt(name, list_docs, gpghome):
+    """Decrypt a document.
+
+    """
+
+    doc = get_document_selection(name, list_docs)
+
+    # if doc is null, we didn't find one, ask if we should create:
+    if not doc:
+        sys.exit(0)
+        
+    email = yew.store.get_user_pref("location.default.email")
+
+    # try to decrypt in place
+    decrypt_file(doc.get_path(), email, gpghome)
+
+    yew.remote.push_doc(yew.store.get_doc(doc.uid))
+    yew.store.put_user_pref('current_doc', doc.uid)
+    yew.store.update_recent('yewser', doc)
+    
 @cli.command()
 @click.argument('spec', required=True)
 @click.option('--string-only', '-s', is_flag=True, required=False)
