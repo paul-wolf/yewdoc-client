@@ -56,11 +56,12 @@ def list_keys(args):
     gpg = get_gpg(args)
     public_keys = gpg.list_keys()
     private_keys = gpg.list_keys(True)
-    print('public keys:')
-    pprint(public_keys)
-    print('private keys:')
-    pprint(private_keys)
-
+    # print('public keys:')
+    # pprint(public_keys)
+    # print('private keys:')
+    # pprint(private_keys)
+    return (public_keys, private_keys)
+        
 def encrypt_input(args):
     gpg = get_gpg(args)
     name_email=args.email
@@ -96,7 +97,7 @@ def decrypt_file(path, email, gpghome):
     print('status: ', status.status)
     print('stderr: ', status.stderr)
 
-def main(name):
+def main(args):
     m = importlib.import_module(__name__)
     getattr(m, args.operation)(args)
 
@@ -110,4 +111,4 @@ if __name__ == '__main__':
     parser.add_argument('--file', type=str, help='path to a file', default=None)
     parser.add_argument('--gpg_dir', type=str, help='GNUGPG directory; default=.gnupg', default=None)
     args = parser.parse_args()
-    main(args.name)
+    main(args)

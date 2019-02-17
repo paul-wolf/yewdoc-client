@@ -34,6 +34,8 @@ import markdown
 import difflib
 import re
 import humanize as h
+from collections import namedtuple
+
 from jinja2 import Template
 
 from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
@@ -43,7 +45,7 @@ from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
 
 from . remote import Remote, RemoteException, OfflineException
 from . store import Tag, TagDoc, Document, YewStore
-from . crypt import encrypt_file, decrypt_file
+from . crypt import encrypt_file, decrypt_file, list_keys
 
 __version__ = '0.1.0'
 __author__ = 'Paul Wolf'
@@ -519,7 +521,7 @@ def pdoc(doc, status, verbose):
     """Print status to stdout."""
 
     if status == Remote.STATUS_REMOTE_SAME and not verbose:
-        print(".", end="")
+        print(".", end="", flush=True)
     else:
         click.echo("", nl=True)        
         click.echo(doc.name, nl=False)
@@ -1249,9 +1251,12 @@ def info():
     print("doc store: {}".format(yew.store.get_user_directory()))
     counts = yew.store.get_counts()
     print("documents={}, tags={}".format(counts['documents'], counts['tags']))
+    email = None
     for k in YewStore.user_preferences:
         if not 'password' in k:
             v = yew.store.get_user_pref(k)
+            if k == 'location.default.email':
+                email = v
             click.echo("%s = %s" % (k, v))
     prefs = yew.store.get_globals()
     for pref in prefs:
@@ -1264,8 +1269,30 @@ def info():
     try:
         r = yew.remote.ping()
         if r is not None and r.status_code == 200:
-            print("remote: {}".format(str(r.content)))
+            print("remote: {}".format(r.content.decode()))
         else:
             print("remote: {}".format(r))
     except Exception as e:
         print("remote error: {}".format(e))
+    print("Encryption: {}".format(email))
+    print("gnupg dir: {}".format(yew.store.get_gnupg_exists()))
+    if yew.store.get_gnupg_exists():
+        Args = namedtuple('Args', 'gpg_dir')
+        args = Args(gpg_dir='.gnupg')
+        keys = list_keys(args)
+        print("Public keys")
+        for public_key in keys[0]:
+            for uid in public_key['uids']:
+                print(uid, end='')
+                if email in uid:
+                    print(" <= identity in use")
+                else:
+                    print("")
+        print("Private keys")        
+        for private_key in keys[1]:
+            for uid in private_key['uids']:
+                print(uid, end='')
+                if email in uid:
+                    print(" <= identity in use")
+                else:
+                    print("")

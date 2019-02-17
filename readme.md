@@ -312,6 +312,21 @@ specified gnupg directory.
   your history on the remote service may still contain unencrypted
   history of changes.
 
+If you want to see what keys will be used for encryption:
+
+    yd info
+
+This will output some generally useful information but also
+information about which keys will be used. Currently, it will assume
+`.gnupg` as home directory.
+
+The current implementation is very simple and lacks some desirable
+refinements, like unencrypting for you when when you want to edit the
+document. Currently, you need to manually do this before editing
+yourself. Also, we should store the home directory for .gnupg instead
+of assuming the default in some cases. Such enhancements are on the
+way.
+
 Overview of Commands
 ====================
 
@@ -385,10 +400,10 @@ that forthwith enables transparent access to the remote server. The
 token is secret and should be protected. It's located in your home
 directory in an sqlite database table.
 
-You can check all user preferences via the `user_pref` command:
+You can check all user preferences via the `user-pref` command:
 
 ```
-$ yd user_pref
+$ yd user-pref
 location.default.url = https://doc.yew.io
 location.default.email = paul.wolf@yewleaf.com
 location.default.username = yewser

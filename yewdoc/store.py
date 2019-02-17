@@ -205,6 +205,12 @@ class YewStore(object):
 
     DEFAULT_USERNAME = 'yewser'
 
+    def get_gnupg_exists(self, gnupg_dir=None):
+        home = expanduser("~")
+        gnupg_dir = gnupg_dir if gnupg_dir else '.gnupg'
+        gnupg_home = os.path.join(home, gnupg_dir)
+        return os.path.exists(gnupg_home)
+        
     def get_username(self, username=None):
         """Return username.
 
