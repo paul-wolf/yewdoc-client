@@ -396,6 +396,7 @@ def encrypt(name, list_docs, gpghome):
 
     # try to encrypt in place
     encrypt_file(doc.get_path(), email, gpghome)
+    doc.toggle_encrypted()
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('current_doc', doc.uid)
     yew.store.update_recent('yewser', doc)
@@ -420,7 +421,7 @@ def decrypt(name, list_docs, gpghome):
 
     # try to decrypt in place
     decrypt_file(doc.get_path(), email, gpghome)
-
+    doc.toggle_encrypted()
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('current_doc', doc.uid)
     yew.store.update_recent('yewser', doc)
@@ -461,8 +462,9 @@ def find(spec, string_only, insensitive):
 @click.option('--info', '-l', is_flag=True, required=False)
 @click.option('--remote', '-r', is_flag=True, required=False)
 @click.option('--humanize', '-h', is_flag=True, required=False)
+@click.option('--encrypted', '-e', is_flag=True, required=False)
 @click.option('--tags', '-t', required=False)
-def ls(name, info, remote, humanize, tags):
+def ls(name, info, remote, humanize, encrypted, tags):
     """List documents."""
 
     if remote:
@@ -481,9 +483,9 @@ def ls(name, info, remote, humanize, tags):
             tag_objects = [yew.store.get_tag(current_tag_context)]
             click.echo("Current tag context: %s" % str(tag_objects[0]))
     if name:
-        docs = yew.store.search_names(name)
+        docs = yew.store.search_names(name, encrypted=encrypted)
     else:
-        docs = yew.store.get_docs(tag_objects=tag_objects)
+        docs = yew.store.get_docs(tag_objects=tag_objects, encrypted=encrypted)
     for doc in docs:
         if info:
             if doc.is_link():
@@ -502,8 +504,11 @@ def ls(name, info, remote, humanize, tags):
             if humanize:
                 click.echo(h.naturaltime(doc.get_last_updated_utc().replace(tzinfo=None)).rjust(15), nl=False)
             else:
-                click.echo(doc.get_last_updated_utc().replace(tzinfo=None), nl=False)
-            click.echo("   ", nl=False)
+                click.echo(doc.get_last_updated_utc().replace(microsecond=0).replace(tzinfo=None), nl=False)
+            if doc.is_encrypted():
+                click.echo(' (E)', nl=False)
+            else:
+                click.echo("    ", nl=False)
         click.echo(doc.name, nl=False)
         if info:
             click.echo("   ", nl=False)

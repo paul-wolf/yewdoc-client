@@ -53,7 +53,7 @@ class TagDoc(object):
 class Document(object):
     """Describes a document."""
 
-    def __init__(self, store, uid, name, location, kind):
+    def __init__(self, store, uid, name, location, kind, encrypt):
         self.store = store
         self.uid = uid
         self.name = name
@@ -63,7 +63,24 @@ class Document(object):
         # TODO: lazy load
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(), location, uid)
+        self.encrypt = encrypt
+        
+    def toggle_encrypted(self):
+        """
+        https://tools.ietf.org/html/rfc4880
+        We should be safe and check the content.
+        """
+        c = self.store.conn.cursor()
+        content_start = self.get_content()[:100].strip()
+        encrypted = 1 if "BEGIN PGP MESSAGE" in content_start else 0
+        sql = "UPDATE document SET encrypt = ? WHERE uid = ?"
+        c.execute(sql, (encrypted, self.uid,))
+        # return boolean
+        return encrypted == 1
 
+    def is_encrypted(self):
+        return self.encrypt == 1
+    
     def short_uid(self):
         """Return first part of uuid."""
         return self.uid.split('-')[0]
@@ -110,7 +127,8 @@ class Document(object):
         click.echo("size     : %s" % self.get_size())
         click.echo("digest   : %s" % self.digest)
         click.echo("path     : %s" % self.path)
-        click.echo("Last modified: %s" % modification_date(self.get_path()))
+        click.echo("updated  : %s" % modification_date(self.get_path()))
+        click.echo("encrypt  : %s" % self.is_encrypted())
 
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
@@ -295,6 +313,16 @@ class YewStore(object):
         );'''
         c.execute(sql)
 
+        try:
+            sql = """
+            ALTER TABLE Document ADD COLUMN encrypt INTEGER
+            """
+            c.execute(sql)            
+        except Exception as e:
+            # if it is already added
+            # print(e)
+            pass
+        
         sql = '''CREATE TABLE IF NOT EXISTS folder (
            folderid,
            parentid ,
@@ -636,12 +664,17 @@ class YewStore(object):
         """Get a doc or None."""
 
         doc = None
-        sql = "select uid,name,location,kind FROM document WHERE uid = ?"
+        sql = "select uid,name,location,kind,encrypt FROM document WHERE uid = ?"
         c = self.conn.cursor()
         c.execute(sql, (uid,))
         row = c.fetchone()
         if row:
-            doc = Document(self, row[0], row[1], row[2], row[3])
+            doc = Document(store=self,
+                           uid=row[0],
+                           name=row[1],
+                           location=row[2],
+                           kind=row[3],
+                           encrypt=row[4])
         c.close()
         return doc
 
@@ -663,26 +696,30 @@ class YewStore(object):
 
         return doc
 
-    def search_names(self, name_frag, exact=False):
+    def search_names(self, name_frag, exact=False, encrypted=False):
         """Get docs with LIKE unless matching exactly."""
 
         c = self.conn.cursor()
 
         if not exact:
-            sql = "SELECT uid,name,location,kind FROM document WHERE name LIKE ?"
+            sql = "SELECT uid,name,location,kind,encrypt FROM document WHERE name LIKE ?"
+            if encrypted:
+                sql += " AND encrypt is true"
             c.execute(sql, ("%" + name_frag + "%",))
         else:
-            sql = "SELECT uid,name,location,kind FROM document WHERE name = ?"
+            sql = "SELECT uid,name,location,kind,encrypt FROM document WHERE name = ?"
+            if encrypted:
+                sql += " AND encrypt is true"
             c.execute(sql, (name_frag,))
 
         rows = c.fetchall()
         docs = []
         for row in rows:
-            docs.append(Document(self, row[0], row[1], row[2], row[3]))
+            docs.append(Document(self, row[0], row[1], row[2], row[3], row[4]))
         c.close()
         return docs
 
-    def get_docs(self, tag_objects=[]):
+    def get_docs(self, tag_objects=[], encrypted=False):
         """Get all docs using the index.
 
         Does not get remote.
@@ -695,15 +732,21 @@ class YewStore(object):
         if tag_objects:
             tags = ",".join(["'" + tag.tagid + "'" for tag in tag_objects])
             where_tags = " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
-        sql = "SELECT uid, name, location, kind FROM document "
+        sql = "SELECT uid, name, location, kind, encrypt FROM document "
         if where_tags:
             sql += where_tags
+        if encrypted:
+            if where_tags:
+                sql += ' AND '
+            else:
+                sql += ' WHERE '
+            sql += " encrypt is true"
         c = self.conn.cursor()
         c.execute(sql)
         rows = c.fetchall()
         docs = []
         for row in rows:
-            docs.append(Document(self, row[0], row[1], row[2], row[3]))
+            docs.append(Document(self, row[0], row[1], row[2], row[3], row[4]))
         c.close()
         return docs
 
@@ -746,13 +789,13 @@ class YewStore(object):
         if not is_uuid(uid):
             raise Exception("Not a valid uid.")
 
-        sql = "SELECT uid,name,location,kind FROM document WHERE uid = ?"
+        sql = "SELECT uid,name,location,kind,encrypt FROM document WHERE uid = ?"
         c = self.conn.cursor()
         c.execute(sql, (uid,))
         row = c.fetchone()
         if not row:
             return None
-        return Document(self, row[0], row[1], row[2], row[3])
+        return Document(self, row[0], row[1], row[2], row[3], row[4])
 
     def get_short(self, s):
         """Get document but with abbreviated uid."""
@@ -794,7 +837,7 @@ class YewStore(object):
                 doc.put_content(content)
         # make this the current document
         self.put_user_pref('current_doc', uid)
-
+        doc.toggle_encrypted()
         return self.get_doc(uid)
 
     def import_document(self, uid, name, location, kind, content):
@@ -809,5 +852,6 @@ class YewStore(object):
             self.index_doc(uid, name, location, kind)
         doc = self.get_doc(uid)
         doc.put_content(content)
+        doc.toggle_encrypted()
         return doc
 

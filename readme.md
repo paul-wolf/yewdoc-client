@@ -29,7 +29,9 @@ markdown, conf, etc. It offers these features:
   
 * Integration with other command line utilities: as just another shell
   utility, you can do normal shell piping in and out, grep, etc.
- 
+
+* GPG encryption: documents can be easily encrypted/decrypted.
+
 The target users are those who prefer to work on the command line
 without the overhead of switching back and forth between a shell and
 the host OS GUI. When working regularly on the command line, it is a
@@ -249,11 +251,66 @@ You can view a set of documents associated with a tag or tags in a web browser:
 
     yd browse -t blog
 
-This will try to convert all documents tagged with 'blog' to html and load them in the default browser. The default
+This will try to convert all documents tagged with 'blog' to html and
+load them in the default browser. The default
 
     yd browse my_template.j2 -t blog
 
-where `my_template.j2` is a Jinja template (http://jinja.pocoo.org/). Without this the default template is used. This has a left sidebar for navigating documents. 
+where `my_template.j2` is a Jinja template
+(http://jinja.pocoo.org/). Without this the default template is
+used. This has a left sidebar for navigating documents.
+
+Encryption
+==========
+
+Encrypt a document:
+
+    yd encrypt foo
+
+Decrypt a document:
+
+    yd decrypt foo
+
+If you have remote cloud storage activated, the encrypted document is
+sent to the remote. Check all encrypted documents:
+
+    yd ls -l --encrypted
+    ee608edc      md          569   2019-02-17 09:49:55 (E)test
+    19128186      md          561   2019-02-17 10:03:20 (E)foo
+
+Note the `(E)` indicating the document is encrypted. Some notes about this feature:
+
+* Your gpg home directory defaults to `.gnupg`. Use the --gpghome
+  option to change it. The specification of the home directory is only
+  good for the one invocation. You would need to provide it again
+  while decrypting.
+
+* The key identity is chosen by your registered email. Therefore, this
+  might not work if you are not registered with the remote cloud
+  server. Just set this manually:
+
+    yd user-pref location.default.email joe.bloggs@whatever.com
+
+The email must be one used for generating a key in your default or
+specified gnupg directory.
+
+* We pass the encryption/decryption commands to gpg without
+  regard to what kind of keys you have (length, encryption standard,
+  etc.)
+
+* When a document is encrypted, it is done in-place. So, locally,
+  there is no longer an unencrypted version. This means if you lose
+  the keys, you won't be able to access the encrypted content. If you
+  are on the remote cloud server, the encrypted file will be there but
+  likewise will be permanently encrypted in this case.
+
+* Obviously, there is no way to view the unencrypted file via the web
+  site (if you use that) as keys are never touched in any way other
+  than to carry out local encryption/decryption operations.
+
+* If you use the remote service and you have made changes in the past,
+  your history on the remote service may still contain unencrypted
+  history of changes.
 
 Overview of Commands
 ====================
@@ -266,10 +323,12 @@ browse       Convert to html and attempt to load in web...
 context      Set or unset a tag context filter for listings.
 convert      Convert to destination_format and print to...
 create       Create a new document.
+decrypt       Decrypt a document.
 delete       Delete a document.
 describe     Show document details.
 diff         Compare two documents.
 edit         Edit a document.
+encrypt      Encrypt a document.
 find         Search for spec in contents of docs.
 global_pref  Show or set global preferences.
 head         Send start of document to stdout.
