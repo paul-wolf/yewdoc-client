@@ -15,6 +15,7 @@ setup(
         "StringGenerator",
         "tzlocal",
         "humanize",
+        "python-gnupg",
    ],
     entry_points='''
         [console_scripts]

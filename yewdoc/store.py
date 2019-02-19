@@ -161,8 +161,9 @@ class Document(object):
 
     def put_content(self, content, mode='w'):
         f = codecs.open(self.path, mode, "utf-8")
-        return f.write(content)
-
+        f.write(content)
+        f.close()
+        
     def __str__(self):
         return str(self.__unicode__())
 

@@ -337,12 +337,25 @@ as your keys. Are your keys protected by a passphrase? Is it reallly
 safe to have keys in the same place as encrypted data? All of these
 issues are the user's responsibility.
 
-The current implementation is very simple and lacks some desirable
-refinements, like unencrypting for you when when you want to edit the
-document. Currently, you need to manually do this before editing
-yourself. Also, we should store the home directory for .gnupg instead
-of assuming the default in some cases. Such enhancements are on the
-way.
+Users and Configuration
+=======================
+
+Yewdocs implements its own users. These are not the same as either the local system user nor the remote Yewdocs user. In `~/.yew.d/` you'll find one or more user names. You can setup new users any time with the `--user` parameter that comes right after `yd`:
+
+    yd --user paul ls -l
+
+Use this immediately after `yd` and the command will use that user context. Yewdocs tries to get the user via several means:
+
+* check for `--user`
+* check for environemnt: YEWDOC_USER
+* check for a config file called `~/.yew` that has this:
+
+    [Yewdoc]
+    username = yewser
+
+where `yewser` is the desired username. 
+
+
 
 Overview of Commands
 ====================

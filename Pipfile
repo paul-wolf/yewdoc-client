@@ -22,6 +22,7 @@ autopep8 = "*"
 yapf = "*"
 fs = "*"
 python-gnupg = "*"
+mock = "*"
 
 [requires]
 python_version = "3.7"
