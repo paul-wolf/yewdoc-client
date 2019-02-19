@@ -21,8 +21,11 @@ import tzlocal
 import markdown
 import difflib
 import re
-import configparser
- 
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
+    
 from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
                                           err, is_uuid, is_short_uuid, get_short_uid,
                                           delete_directory, get_sha_digest, to_utc,
