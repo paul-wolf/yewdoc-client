@@ -11,7 +11,7 @@ from collections import namedtuple
 def gpgh(gpg_dir):
     default_gpg_dir = gpg_dir if gpg_dir else '.gnupg'
     home = os.path.expanduser("~")
-    return f'{home}/{default_gpg_dir}'
+    return '{home}/{}'.format(default_gpg_dir)
 
 def get_gpg(args):
     return gnupg.GPG(gnupghome=gpgh(args.gpg_dir))
