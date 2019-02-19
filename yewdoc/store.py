@@ -78,6 +78,9 @@ class Document(object):
         # return boolean
         return encrypted == 1
 
+    def check_encrypted(self):
+        return self.get_content().startswith('-----BEGIN PGP MESSAGE-----')
+    
     def is_encrypted(self):
         return self.encrypt == 1
     

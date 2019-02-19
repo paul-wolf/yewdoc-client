@@ -340,7 +340,9 @@ def get_document_selection(name, list_docs, multiple=False):
 @click.argument('name', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
 @click.option('--open-file', '-o', is_flag=True, required=False, help="Open the file in your host operating system.")
-def edit(name, list_docs, open_file):
+@click.option('--gpghome', '-g', required=False, default='.gnupg',
+              help="Your GnuGPG home directory, defaults to .gnupg")
+def edit(name, list_docs, open_file, gpghome):
     """Edit a document.
 
     Set your $EDITOR environment variable to determine what editor
@@ -366,11 +368,20 @@ def edit(name, list_docs, open_file):
         else:
             sys.exit(0)
 
+    email = yew.store.get_user_pref("location.default.email")
+
+    encrypted = doc.check_encrypted()
+    if encrypted:
+        decrypt_file(doc.get_path(), email, gpghome)
     if open_file:
         # send to host os to ask it how to open file
         click.launch(doc.get_path())
     else:
         click.edit(editor='emacs', require_save=True, filename=doc.path)
+        
+    if encrypted:
+        encrypt_file(doc.get_path(), email, gpghome)
+    doc.toggle_encrypted()
 
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.put_user_pref('current_doc', doc.uid)
@@ -382,7 +393,7 @@ def edit(name, list_docs, open_file):
 @click.argument('name', required=False)
 @click.option('--list_docs', '-l', is_flag=True, required=False)
 @click.option('--gpghome', '-g', required=False, default='.gnupg',
-              help="Your GnuGPG home directory, defaults to ")
+              help="Your GnuGPG home directory, defaults to .gnupg")
 def encrypt(name, list_docs, gpghome):
     """Encrypt a document.
 

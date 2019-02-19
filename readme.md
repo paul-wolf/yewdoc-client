@@ -298,6 +298,9 @@ specified gnupg directory.
   regard to what kind of keys you have (length, encryption standard,
   etc.)
 
+* Only the contents are encrypted. Title, tags and some other meta
+  data are not encrypted.
+
 * When a document is encrypted, it is done in-place. So, locally,
   there is no longer an unencrypted version. This means if you lose
   the keys, you won't be able to access the encrypted content. If you
@@ -312,6 +315,10 @@ specified gnupg directory.
   your history on the remote service may still contain unencrypted
   history of changes.
 
+* If you call the decrypt operation on an encrypted file, it encrypts
+  it again. You'll need to decrypt twice (as many times as you
+  encrypted) to get the original content back.
+
 If you want to see what keys will be used for encryption:
 
     yd info
@@ -319,6 +326,16 @@ If you want to see what keys will be used for encryption:
 This will output some generally useful information but also
 information about which keys will be used. Currently, it will assume
 `.gnupg` as home directory.
+
+To use encryption safely, you need to be aware of numerous things that
+are out of scope for this document and Yewdocs, like safe key
+generation and safe key storage. Encrypting a file in-place is not a
+guarantee that a technical forensic operation could not possibly
+retrieve unencrypted content with possession of the host. Yewdocs
+assumes here that the encrypted documents are on the same filesystems
+as your keys. Are your keys protected by a passphrase? Is it reallly
+safe to have keys in the same place as encrypted data? All of these
+issues are the user's responsibility.
 
 The current implementation is very simple and lacks some desirable
 refinements, like unencrypting for you when when you want to edit the
