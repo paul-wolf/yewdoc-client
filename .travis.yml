@@ -16,7 +16,7 @@ install:
   - pip install -r requirements.txt
   - pip install --editable .
 
-script: python tests.py
+script: python yewdoc/tests.py
 
 branches:
   only:
