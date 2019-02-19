@@ -11,6 +11,7 @@ editor and filesystem commands.
     :license: BSD, see LICENSE for more details.
 
 """
+from __future__ import print_function
 import os
 import sys
 import uuid

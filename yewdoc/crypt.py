@@ -90,7 +90,7 @@ def decrypt_file(path, email, gpghome):
     args = Args(gpg_dir=gpghome)
     gpg = get_gpg(args)
     passphrase = _get_passphrase()
-    print(f"Passphrase: [{passphrase}]")
+    print("Passphrase: [{}]".format(passphrase))
     with open(path, 'rb') as f:
         status = gpg.decrypt_file(f, passphrase=passphrase, output=path)
     print('ok: ', status.ok)

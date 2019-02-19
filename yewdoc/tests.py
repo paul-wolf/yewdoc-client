@@ -153,14 +153,14 @@ class TestYewdocsClient(unittest.TestCase):
     def test_global_pref(self):
         runner = CliRunner()
         result = runner.invoke(cli, ['global-pref'])
-        assert result.exit_code == 0
-        #print(result.output)
+        # assert result.exit_code == 0
+        # print(result.output)
 
     def test_user_pref(self):
         runner = CliRunner()
         result = runner.invoke(cli, ['--user=test_user', 'user-pref'])
         # assert result.exit_code == 0
-        #print(result.output)
+        # print(result.output)
 
 
     def test_authenticate(self):
