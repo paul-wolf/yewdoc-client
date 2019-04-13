@@ -312,8 +312,10 @@ specified gnupg directory.
   than to carry out local encryption/decryption operations.
 
 * If you use the remote service and you have made changes in the past,
-  your history on the remote service may still contain unencrypted
-  history of changes.
+  your history of changes on the remote service will be deleted for a
+  document that you encrypt locally. This is to prevent unintentially
+  leaving unencrypted information on the remote that you think is not
+  available.
 
 * If you call the decrypt operation on an encrypted file, it encrypts
   it again. You'll need to decrypt twice (as many times as you
