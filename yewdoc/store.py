@@ -57,7 +57,7 @@ class TagDoc(object):
 class Document(object):
     """Describes a document."""
 
-    def __init__(self, store, uid, name, location, kind, encrypt):
+    def __init__(self, store, uid, name, location, kind, encrypt, ipfs_hash):
         self.store = store
         self.uid = uid
         self.name = name
@@ -68,6 +68,7 @@ class Document(object):
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(), location, uid)
         self.encrypt = encrypt
+        self.ipfs_hash = ipfs_hash
         
     def toggle_encrypted(self):
         """
@@ -136,6 +137,7 @@ class Document(object):
         click.echo("path     : %s" % self.path)
         click.echo("updated  : %s" % modification_date(self.get_path()))
         click.echo("encrypt  : %s" % self.is_encrypted())
+        click.echo("ipfs_hash: %s" % self.ipfs_hash)
 
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
@@ -330,6 +332,16 @@ class YewStore(object):
         try:
             sql = """
             ALTER TABLE Document ADD COLUMN encrypt INTEGER
+            """
+            c.execute(sql)            
+        except Exception as e:
+            # if it is already added
+            # print(e)
+            pass
+        
+        try:
+            sql = """
+            ALTER TABLE Document ADD COLUMN ipfs_hash
             """
             c.execute(sql)            
         except Exception as e:
@@ -678,7 +690,7 @@ class YewStore(object):
         """Get a doc or None."""
 
         doc = None
-        sql = "select uid,name,location,kind,encrypt FROM document WHERE uid = ?"
+        sql = "select uid,name,location,kind,encrypt,ipfs_hash FROM document WHERE uid = ?"
         c = self.conn.cursor()
         c.execute(sql, (uid,))
         row = c.fetchone()
@@ -688,7 +700,8 @@ class YewStore(object):
                            name=row[1],
                            location=row[2],
                            kind=row[3],
-                           encrypt=row[4])
+                           encrypt=row[4],
+                           ipfs_hash=row[5])
         c.close()
         return doc
 
@@ -716,12 +729,12 @@ class YewStore(object):
         c = self.conn.cursor()
 
         if not exact:
-            sql = "SELECT uid,name,location,kind,encrypt FROM document WHERE name LIKE ?"
+            sql = "SELECT uid,name,location,kind,encrypt,ipfs_hash FROM document WHERE name LIKE ?"
             if encrypted:
                 sql += " AND encrypt is true"
             c.execute(sql, ("%" + name_frag + "%",))
         else:
-            sql = "SELECT uid,name,location,kind,encrypt FROM document WHERE name = ?"
+            sql = "SELECT uid,name,location,kind,encrypt,ipfs_hash FROM document WHERE name = ?"
             if encrypted:
                 sql += " AND encrypt is true"
             c.execute(sql, (name_frag,))
@@ -729,7 +742,7 @@ class YewStore(object):
         rows = c.fetchall()
         docs = []
         for row in rows:
-            docs.append(Document(self, row[0], row[1], row[2], row[3], row[4]))
+            docs.append(Document(self, row[0], row[1], row[2], row[3], row[4], row[5]))
         c.close()
         return docs
 
@@ -746,7 +759,7 @@ class YewStore(object):
         if tag_objects:
             tags = ",".join(["'" + tag.tagid + "'" for tag in tag_objects])
             where_tags = " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
-        sql = "SELECT uid, name, location, kind, encrypt FROM document "
+        sql = "SELECT uid, name, location, kind, encrypt, ipfs_hash FROM document "
         if where_tags:
             sql += where_tags
         if encrypted:
@@ -760,7 +773,7 @@ class YewStore(object):
         rows = c.fetchall()
         docs = []
         for row in rows:
-            docs.append(Document(self, row[0], row[1], row[2], row[3], row[4]))
+            docs.append(Document(self, row[0], row[1], row[2], row[3], row[4], row[5]))
         c.close()
         return docs
 
@@ -803,13 +816,13 @@ class YewStore(object):
         if not is_uuid(uid):
             raise Exception("Not a valid uid.")
 
-        sql = "SELECT uid,name,location,kind,encrypt FROM document WHERE uid = ?"
+        sql = "SELECT uid,name,location,kind,encrypt,ipfs_hash FROM document WHERE uid = ?"
         c = self.conn.cursor()
         c.execute(sql, (uid,))
         row = c.fetchone()
         if not row:
             return None
-        return Document(self, row[0], row[1], row[2], row[3], row[4])
+        return Document(self, row[0], row[1], row[2], row[3], row[4], row[5])
 
     def get_short(self, s):
         """Get document but with abbreviated uid."""
