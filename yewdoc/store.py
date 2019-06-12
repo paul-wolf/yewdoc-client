@@ -21,18 +21,29 @@ import tzlocal
 import markdown
 import difflib
 import re
+
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
-    
-from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
-                                          err, is_uuid, is_short_uuid, get_short_uid,
-                                          delete_directory, get_sha_digest, to_utc,
-                                          modification_date)
+
+from .utils import (
+    bcolors,
+    is_binary_file,
+    is_binary_string,
+    slugify,
+    err,
+    is_uuid,
+    is_short_uuid,
+    get_short_uid,
+    delete_directory,
+    get_sha_digest,
+    to_utc,
+    modification_date,
+)
+
 
 class Tag(object):
-
     def __init__(self, store, location, tagid, name):
         self.store = store
         self.location = location
@@ -47,7 +58,6 @@ class Tag(object):
 
 
 class TagDoc(object):
-
     def __init__(self, store, tagid, uid):
         self.store = store
         self.tagid = tagid
@@ -63,13 +73,15 @@ class Document(object):
         self.name = name
         self.location = location
         self.kind = kind
-        self.path = os.path.join(store.get_storage_directory(), location, uid, u"doc." + kind)
+        self.path = os.path.join(
+            store.get_storage_directory(), location, uid, u"doc." + kind
+        )
         # TODO: lazy load
         self.digest = self.get_digest()
         self.directory_path = os.path.join(store.get_storage_directory(), location, uid)
         self.encrypt = encrypt
         self.ipfs_hash = ipfs_hash
-        
+
     def toggle_encrypted(self):
         """
         https://tools.ietf.org/html/rfc4880
@@ -79,19 +91,19 @@ class Document(object):
         content_start = self.get_content()[:100].strip()
         encrypted = 1 if "BEGIN PGP MESSAGE" in content_start else 0
         sql = "UPDATE document SET encrypt = ? WHERE uid = ?"
-        c.execute(sql, (encrypted, self.uid,))
+        c.execute(sql, (encrypted, self.uid))
         # return boolean
         return encrypted == 1
 
     def check_encrypted(self):
-        return self.get_content().startswith('-----BEGIN PGP MESSAGE-----')
-    
+        return self.get_content().startswith("-----BEGIN PGP MESSAGE-----")
+
     def is_encrypted(self):
         return self.encrypt == 1
-    
+
     def short_uid(self):
         """Return first part of uuid."""
-        return self.uid.split('-')[0]
+        return self.uid.split("-")[0]
 
     def get_safe_name(self):
         """Return safe name."""
@@ -101,23 +113,29 @@ class Document(object):
         return get_sha_digest(self.get_content())
 
     def get_basename(self):
-        return 'doc'
+        return "doc"
 
     def get_filename(self):
         return u"%s.%s" % (self.get_basename(), self.kind)
 
     def get_path(self):
-        return os.path.join(self.store.get_storage_directory(), self.location, self.uid,
-                            self.get_filename())
+        return os.path.join(
+            self.store.get_storage_directory(),
+            self.location,
+            self.uid,
+            self.get_filename(),
+        )
+
     def is_link(self):
         return os.path.islink(self.get_path())
 
     def get_media_path(self):
-        path = os.path.join(self.store.get_storage_directory(), self.location, self.uid,
-                            'media')
+        path = os.path.join(
+            self.store.get_storage_directory(), self.location, self.uid, "media"
+        )
         if not os.path.exists(path):
             os.makedirs(path)
-            #os.chmod(path, 0x776)
+            # os.chmod(path, 0x776)
         return path
 
     def validate(self):
@@ -150,12 +168,12 @@ class Document(object):
     def serialize(self, no_uid=False):
         """Serialize as json to send to server."""
         data = {}
-        data['uid'] = self.uid
-        data['parent'] = None
-        data['title'] = self.name
-        data['kind'] = self.kind
-        data['content'] = self.get_content()  # open(self.get_path()).read()
-        data['digest'] = self.digest
+        data["uid"] = self.uid
+        data["parent"] = None
+        data["title"] = self.name
+        data["kind"] = self.kind
+        data["content"] = self.get_content()  # open(self.get_path()).read()
+        data["digest"] = self.digest
         return json.dumps(data)
 
     def get_content(self):
@@ -165,11 +183,11 @@ class Document(object):
         f.close()
         return s
 
-    def put_content(self, content, mode='w'):
+    def put_content(self, content, mode="w"):
         f = codecs.open(self.path, mode, "utf-8")
         f.write(content)
         f.close()
-        
+
     def __str__(self):
         return str(self.__unicode__())
 
@@ -187,11 +205,8 @@ class YewStore(object):
     yewdb_path = None
     conn = None
     username = None
-    
-    global_preferences = [
-        "username",
-        "offline",
-    ]
+
+    global_preferences = ["username", "offline"]
 
     # mainly preferences required to connect to server
     user_preferences = [
@@ -202,57 +217,52 @@ class YewStore(object):
         "location.default.first_name",
         "location.default.last_name",
         "location.default.token",
-        #"default_doc_type",
-        #"current_doc",
+        # "default_doc_type",
+        # "current_doc",
     ]
 
-    doc_kinds = [
-        "md",
-        "txt",
-        "rst",
-        "json",
-    ]
+    doc_kinds = ["md", "txt", "rst", "json"]
 
-    DEFAULT_USERNAME = 'yewser'
+    DEFAULT_USERNAME = "yewser"
 
     def get_gnupg_exists(self, gnupg_dir=None):
         home = expanduser("~")
-        gnupg_dir = gnupg_dir if gnupg_dir else '.gnupg'
+        gnupg_dir = gnupg_dir if gnupg_dir else ".gnupg"
         gnupg_home = os.path.join(home, gnupg_dir)
         return os.path.exists(gnupg_home)
-        
+
     def get_username(self, username=None):
         """Return username.
 
         Try to get a username that determines the repo of docs.
 
-        Try to get it 
+        Try to get it
            from the caller.
            from the environment
            from a properties file ~/.yew
            user the default constant 'yewser'
 
         """
-        
+
         home = expanduser("~")
-        file_path = os.path.join(home, '.yew')
+        file_path = os.path.join(home, ".yew")
 
         if username:
             return username
-        elif os.getenv('YEWDOC_USER'):
-            username = os.getenv('YEWDOC_USER')
+        elif os.getenv("YEWDOC_USER"):
+            username = os.getenv("YEWDOC_USER")
         elif os.path.exists(file_path):
-            config = configparser.ConfigParser()     
-            with open(file_path, 'r') as f:
-               s = f.read()
-               config.read_string(s)
+            config = configparser.ConfigParser()
+            with open(file_path, "r") as f:
+                s = f.read()
+                config.read_string(s)
             try:
-                username = config['Yewdoc']['username']
-            except Exception as e:
-               pass
-           
+                username = config["Yewdoc"]["username"]
+            except Exception:
+                pass
+
         return username if username else YewStore.DEFAULT_USERNAME
-    
+
     def get_user_directory(self):
         """Get the directory for the current local user.
 
@@ -262,7 +272,7 @@ class YewStore(object):
 
         """
         home = expanduser("~")
-        yew_dir = os.path.join(home, '.yew.d', self.username)
+        yew_dir = os.path.join(home, ".yew.d", self.username)
         if not os.path.exists(yew_dir):
             os.makedirs(yew_dir)
         return yew_dir
@@ -272,12 +282,12 @@ class YewStore(object):
 
         self.username = self.get_username(username)
         yew_dir = self.get_user_directory()
-        self.yewdb_path = os.path.join(yew_dir, 'yew.db')
+        self.yewdb_path = os.path.join(yew_dir, "yew.db")
         self.conn = self.make_db(self.yewdb_path)
         # TODO: change this to be the same as get_user_directory()
-        self.username = self.get_global('username', self.username)
-        self.offline = self.get_global('offline', False)
-        self.location = 'default'
+        self.username = self.get_global("username", self.username)
+        self.offline = self.get_global("offline", False)
+        self.location = "default"
 
     def get_storage_directory(self):
         """Return path for storage."""
@@ -286,7 +296,7 @@ class YewStore(object):
     def get_tmp_directory(self):
         """Return path for temporary storage."""
 
-        tmp_dir = os.path.join(self.get_storage_directory(), 'tmp')
+        tmp_dir = os.path.join(self.get_storage_directory(), "tmp")
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
         return tmp_dir
@@ -295,30 +305,30 @@ class YewStore(object):
         """Create the db if not exist and get or create tables."""
         conn = sqlite3.connect(path)
         c = conn.cursor()
-        sql = '''
+        sql = """
         CREATE TABLE IF NOT EXISTS global_prefs (
            key NOT NULL,
            value NOT NULL
         );
-        '''
+        """
         c.execute(sql)
 
-        sql = '''CREATE TABLE IF NOT EXISTS user_prefs (
+        sql = """CREATE TABLE IF NOT EXISTS user_prefs (
            username NOT NULL,
            key NOT NULL,
            value NOT NULL
-        );'''
+        );"""
         c.execute(sql)
 
-        sql = '''CREATE TABLE IF NOT EXISTS user_project_prefs (
+        sql = """CREATE TABLE IF NOT EXISTS user_project_prefs (
            username NOT NULL,
            project NOT NULL,
            key NOT NULL,
            value NOT NULL
-        );'''
+        );"""
         c.execute(sql)
 
-        sql = '''CREATE TABLE IF NOT EXISTS document (
+        sql = """CREATE TABLE IF NOT EXISTS document (
            uid NOT NULL,
            name NOT NULL,
            location NOT NULL,
@@ -326,54 +336,54 @@ class YewStore(object):
            digest,
            folderid,
            FOREIGN KEY(folderid) REFERENCES folder(folderid)
-        );'''
+        );"""
         c.execute(sql)
 
         try:
             sql = """
             ALTER TABLE Document ADD COLUMN encrypt INTEGER
             """
-            c.execute(sql)            
-        except Exception as e:
+            c.execute(sql)
+        except Exception:
             # if it is already added
-            # print(e)
+            #  print(e)
             pass
-        
+
         try:
             sql = """
             ALTER TABLE Document ADD COLUMN ipfs_hash
             """
-            c.execute(sql)            
-        except Exception as e:
+            c.execute(sql)
+        except Exception:
             # if it is already added
-            # print(e)
+            #  print(e)
             pass
-        
-        sql = '''CREATE TABLE IF NOT EXISTS folder (
+
+        sql = """CREATE TABLE IF NOT EXISTS folder (
            folderid,
            parentid ,
            name NOT NULL,
            FOREIGN KEY(parentid) REFERENCES folder(folderid)
-        );'''
+        );"""
         c.execute(sql)
 
-        sql = '''
+        sql = """
         CREATE TABLE IF NOT EXISTS tag (
             location NOT NULL,
             tagid NOT NULL,
             name NOT NULL,
             PRIMARY KEY (location, tagid),
             UNIQUE(location,name)
-        );'''
+        );"""
         c.execute(sql)
 
-        sql = '''CREATE TABLE IF NOT EXISTS tagdoc (
+        sql = """CREATE TABLE IF NOT EXISTS tagdoc (
             uid NOT NULL,
             tagid NOT NULL,
             FOREIGN KEY(uid) REFERENCES document(uid),
             FOREIGN KEY(tagid) REFERENCES document(tagid),
             UNIQUE(uid,tagid)
-        );'''
+        );"""
         c.execute(sql)
 
         conn.commit()
@@ -381,18 +391,18 @@ class YewStore(object):
 
     def get_counts(self):
         data = {}
-        
+
         c = self.conn.cursor()
         c.execute("SELECT count(*) FROM document;")
         row = c.fetchone()
         data["documents"] = row[0]
-        
+
         c.execute("SELECT count(*) FROM tag;")
         row = c.fetchone()
         data["tags"] = row[0]
-        
+
         return data
-    
+
     def get_or_create_tag(self, name):
         """Create a new tag. Make sure it is unique."""
 
@@ -405,14 +415,9 @@ class YewStore(object):
         s = "SELECT * FROM tag WHERE tagid = ?"
         c.execute(s, (tagid,))
         row = c.fetchone()
-        tag = Tag(
-            store=self,
-            location=row[0],
-            tagid=row[1],
-            name=row[2]
-        )
+        tag = Tag(store=self, location=row[0], tagid=row[1], name=row[2])
         return tag
-    
+
     def sync_tag(self, tagid, name):
         """Import a tag if not existing and return tag object.
         """
@@ -427,12 +432,7 @@ class YewStore(object):
         row = c.fetchone()
         if not row:
             return None
-        tag = Tag(
-            store=self,
-            location=row[0],
-            tagid=row[1],
-            name=row[2]
-        )
+        tag = Tag(store=self, location=row[0], tagid=row[1], name=row[2])
         return tag
 
     def get_tag(self, tagid):
@@ -441,17 +441,11 @@ class YewStore(object):
         tag = None
         c = self.conn.cursor()
         s = "SELECT * FROM tag WHERE location = ? AND tagid = ?"
-        c.execute(s, (self.location,tagid))
+        c.execute(s, (self.location, tagid))
         row = c.fetchone()
         if row:
-            tag = Tag(
-                store=self,
-                location=row[0],
-                tagid=row[1],
-                name=row[2]
-            )
+            tag = Tag(store=self, location=row[0], tagid=row[1], name=row[2])
         return tag
-
 
     def get_tags(self, name=None, exact=False):
         """Get all tags that match name and return a list of tag objects.
@@ -472,12 +466,7 @@ class YewStore(object):
             c.execute(s, (self.location, name + "%"))
         rows = c.fetchall()
         for row in rows:
-            tag = Tag(
-                store=self,
-                location=row[0],
-                tagid=row[1],
-                name=row[2]
-            )
+            tag = Tag(store=self, location=row[0], tagid=row[1], name=row[2])
             tags.append(tag)
         return tags
 
@@ -493,11 +482,11 @@ class YewStore(object):
         for row in rows:
             tag_docs.append(TagDoc(store=self, tagid=row[1], uid=row[0]))
         return tag_docs
-    
+
     def parse_tags(self, tag_string):
         """Parse tag_string and return a list of tag objects."""
 
-        string_tags = tag_string.split(',')
+        string_tags = tag_string.split(",")
         tag_list = []
         for t in string_tags:
             tags = self.get_tags(t, exact=True)
@@ -554,7 +543,7 @@ class YewStore(object):
             list_parsed.remove(doc.uid)  # take it out
         list_parsed.insert(0, doc.uid)  # make it the first one
         # now save the new list
-        self.put_user_pref('recent_list', json.dumps(list_parsed))
+        self.put_user_pref("recent_list", json.dumps(list_parsed))
 
     def get_recent(self, username):
         """Get most recent documents."""
@@ -596,9 +585,11 @@ class YewStore(object):
     def put_global(self, k, v):
         """Set a global preference. Must be in class var global_preferences."""
 
-        if not k in YewStore.global_preferences:
-            raise ValueError("Unknown global preference: %s. Choices are: %s" %
-                             (k, ", ".join(YewStore.global_preferences)))
+        if k not in YewStore.global_preferences:
+            raise ValueError(
+                "Unknown global preference: %s. Choices are: %s"
+                % (k, ", ".join(YewStore.global_preferences))
+            )
         # print "put_global (%s,%s)" % (k,v)
         if not k or not v:
             print("not storing nulls")
@@ -607,11 +598,11 @@ class YewStore(object):
         if self.get_global(k):
             sql = "UPDATE global_prefs SET value = ? WHERE key = ?"
             # print "UPDATE global_prefs SET value = '%s' WHERE key = '%s'" % (v,k)
-            c.execute(sql, (v, k,))
+            c.execute(sql, (v, k))
             click.echo("updated global: %s = %s" % (k, self.get_global(k)))
         else:
             sql = "INSERT INTO global_prefs VALUES (?,?)"
-            c.execute(sql, (k, v,))
+            c.execute(sql, (k, v))
             click.echo("created global: %s = %s" % (k, self.get_global(k)))
 
         self.conn.commit()
@@ -652,12 +643,12 @@ class YewStore(object):
 
     def delete_user_pref(self, k):
         username = self.username
-        print("delete_user_pref (%s,%s): " % (username,k))
+        print("delete_user_pref (%s,%s): " % (username, k))
         c = self.conn.cursor()
         sql = "DELETE FROM user_prefs WHERE username = ? AND key = ?"
         c.execute(sql, (username, k))
         self.conn.commit()
-        return 
+        return
 
     def get_user_project_pref(self, username, project, k):
         # print "get_user_pref (%s,%s): " % (username,k)
@@ -695,13 +686,15 @@ class YewStore(object):
         c.execute(sql, (uid,))
         row = c.fetchone()
         if row:
-            doc = Document(store=self,
-                           uid=row[0],
-                           name=row[1],
-                           location=row[2],
-                           kind=row[3],
-                           encrypt=row[4],
-                           ipfs_hash=row[5])
+            doc = Document(
+                store=self,
+                uid=row[0],
+                name=row[1],
+                location=row[2],
+                kind=row[3],
+                encrypt=row[4],
+                ipfs_hash=row[5],
+            )
         c.close()
         return doc
 
@@ -755,18 +748,20 @@ class YewStore(object):
         put together correctly before passing them here.
 
         """
-        where_tags = ''
+        where_tags = ""
         if tag_objects:
             tags = ",".join(["'" + tag.tagid + "'" for tag in tag_objects])
-            where_tags = " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
+            where_tags = (
+                " WHERE uid IN (SELECT uid FROM tagdoc WHERE tagid IN (%s))" % tags
+            )
         sql = "SELECT uid, name, location, kind, encrypt, ipfs_hash FROM document "
         if where_tags:
             sql += where_tags
         if encrypted:
             if where_tags:
-                sql += ' AND '
+                sql += " AND "
             else:
-                sql += ' WHERE '
+                sql += " WHERE "
             sql += " encrypt is true"
         c = self.conn.cursor()
         c.execute(sql)
@@ -840,7 +835,9 @@ class YewStore(object):
         with codecs.open(path, "a", "utf-8"):
             os.utime(path, None)
 
-    def create_document(self, name, location, kind, content=None, symlink_source_path=None):
+    def create_document(
+        self, name, location, kind, content=None, symlink_source_path=None
+    ):
         if not location:
             location = self.location
         uid = str(uuid.uuid1())
@@ -848,7 +845,7 @@ class YewStore(object):
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, "doc." + kind.lower())
-        
+
         if symlink_source_path:
             # we are symlinking to an existing path
             # we need an absolute path for this to work
@@ -863,7 +860,7 @@ class YewStore(object):
             if content:
                 doc.put_content(content)
         # make this the current document
-        self.put_user_pref('current_doc', uid)
+        self.put_user_pref("current_doc", uid)
         doc.toggle_encrypted()
         return self.get_doc(uid)
 
@@ -881,4 +878,3 @@ class YewStore(object):
         doc.put_content(content)
         doc.toggle_encrypted()
         return doc
-

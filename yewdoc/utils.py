@@ -18,14 +18,14 @@ import humanize as h
 
 
 class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 def is_binary_string():
@@ -34,7 +34,7 @@ def is_binary_string():
 
 
 def is_binary_file(fullpath):
-    return is_binary_string(open(fullpath, 'rb').read(1024))
+    return is_binary_string(open(fullpath, "rb").read(1024))
 
 
 def slugify(value):
@@ -43,33 +43,37 @@ def slugify(value):
     and converts spaces to hyphens.
     """
     import unicodedata
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode()
-    value = re.sub('[^\w\s-]', '', value).strip().lower()
-    #... re.sub('[-\s]+', '-', value)
-    value = '-'.join(value.split()).lower()
+
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
+    value = re.sub("[^\w\s-]", "", value).strip().lower()
+    # ... re.sub('[-\s]+', '-', value)
+    value = "-".join(value.split()).lower()
     return value
 
 
 def err():
     exc_type, exc_value, exc_traceback = sys.exc_info()
-    traceback.print_exception(exc_type, exc_value, exc_traceback,
-                              limit=5, file=sys.stdout)
+    traceback.print_exception(
+        exc_type, exc_value, exc_traceback, limit=5, file=sys.stdout
+    )
 
 
 def is_uuid(uid):
     """Return non-None if uid is a uuid."""
-    uuidregex = re.compile('[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z', re.I)
+    uuidregex = re.compile(
+        "[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z", re.I
+    )
     return uuidregex.match(uid)
 
 
 def is_short_uuid(s):
     """Return non-None if uid is a uuid."""
-    uuid_short_regex = re.compile('[0-9a-f]{8}\Z', re.I)
+    uuid_short_regex = re.compile("[0-9a-f]{8}\Z", re.I)
     return uuid_short_regex.match(s)
 
 
 def get_short_uid(s):
-    return s.split('-')[0]
+    return s.split("-")[0]
 
 
 def delete_directory(folder):
@@ -89,7 +93,7 @@ def get_sha_digest(s):
 
     """
     s = s.rstrip()
-    s = s.encode('utf-8')
+    s = s.encode("utf-8")
     return hashlib.sha256(s).hexdigest()
 
 

@@ -2,9 +2,9 @@
 from setuptools import setup
 
 setup(
-    name='yd',
-    version='0.1.0',
-    py_modules=['yewdoc'],
+    name="yd",
+    version="0.1.0",
+    py_modules=["yewdoc"],
     install_requires=[
         "click",
         "Jinja2",
@@ -17,9 +17,9 @@ setup(
         "tzlocal",
         "humanize",
         "python-gnupg",
-   ],
-    entry_points='''
+    ],
+    entry_points="""
         [console_scripts]
         yd = yd:cli
-    ''',
+    """,
 )

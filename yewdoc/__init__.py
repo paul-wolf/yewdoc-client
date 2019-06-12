@@ -39,22 +39,32 @@ from collections import namedtuple
 
 from jinja2 import Template
 
-from . utils import (bcolors, is_binary_file, is_binary_string, slugify,
-                     err, is_uuid, is_short_uuid, get_short_uid,
-                     delete_directory, get_sha_digest, to_utc,
-                     modification_date)
+from .utils import (
+    bcolors,
+    is_binary_file,
+    is_binary_string,
+    slugify,
+    err,
+    is_uuid,
+    is_short_uuid,
+    get_short_uid,
+    delete_directory,
+    get_sha_digest,
+    to_utc,
+    modification_date,
+)
 
-from . remote import Remote, RemoteException, OfflineException
-from . store import Tag, TagDoc, Document, YewStore
-from . crypt import encrypt_file, decrypt_file, list_keys
+from .remote import Remote, RemoteException, OfflineException
+from .store import Tag, TagDoc, Document, YewStore
+from .crypt import encrypt_file, decrypt_file, list_keys
 
-__version__ = '0.1.0'
-__author__ = 'Paul Wolf'
-__license__ = 'BSD'
+__version__ = "0.1.0"
+__author__ = "Paul Wolf"
+__license__ = "BSD"
 
 try:
     import pypandoc
-except:
+except Exception:
     print("pypandoc won't load; convert cmd will not work")
 
 # suppress pesky warnings while testing locally
@@ -72,8 +82,9 @@ class YewCLI(object):
         self.store = YewStore(username=username)
         self.remote = Remote(self.store)
 
+
 @click.group()
-@click.option('--user', help="User name", required=False)
+@click.option("--user", help="User name", required=False)
 def cli(user):
     global yew
     yew = YewCLI(username=user)
@@ -89,9 +100,15 @@ def status():
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--location', help="Location endpoint alias for document", required=False)
-@click.option('--kind', '-k', default='md', help="Type of document, txt, md, rst, json, etc.", required=False)
+@click.argument("name", required=False)
+@click.option("--location", help="Location endpoint alias for document", required=False)
+@click.option(
+    "--kind",
+    "-k",
+    default="md",
+    help="Type of document, txt, md, rst, json, etc.",
+    required=False,
+)
 def create(name, location, kind):
     """Create a new document."""
     if not name:
@@ -107,7 +124,7 @@ def create(name, location, kind):
         kind = kind_tmp
 
     if not location:
-        location = 'default'
+        location = "default"
 
     doc = yew.store.create_document(name, location, kind)
 
@@ -116,16 +133,18 @@ def create(name, location, kind):
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
 
 
-def get_user_email():
-    """Get user email from prefs or stdin."""
-    self.url = self.store.get_user_pref('url')
-
 @cli.command()
-@click.argument('tagname', required=False)
-@click.argument('docname', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--create', '-c', is_flag=True, required=False)
-@click.option('--untag', '-u', is_flag=True, required=False, help="Remove a tag association from document(s)")
+@click.argument("tagname", required=False)
+@click.argument("docname", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--create", "-c", is_flag=True, required=False)
+@click.option(
+    "--untag",
+    "-u",
+    is_flag=True,
+    required=False,
+    help="Remove a tag association from document(s)",
+)
 def tag(tagname, docname, list_docs, create, untag):
     """Manage tags.
 
@@ -177,8 +196,8 @@ def tag(tagname, docname, list_docs, create, untag):
 
 
 @cli.command()
-@click.option('--tag', '-t', required=False, help="Set a tag as a filter.")
-@click.option('--clear', '-c', is_flag=True, required=False, help="Clear the context.")
+@click.option("--tag", "-t", required=False, help="Set a tag as a filter.")
+@click.option("--clear", "-c", is_flag=True, required=False, help="Clear the context.")
 def context(tag, clear):
     """Set or unset a tag context filter for listings.
 
@@ -193,7 +212,7 @@ def context(tag, clear):
 
     """
     tags = None
-    current_tag_context = yew.store.get_user_pref('tag_context')
+    current_tag_context = yew.store.get_user_pref("tag_context")
     if tag:
         # lookup tag
         tags = yew.store.get_tags(tag, exact=True)
@@ -201,21 +220,25 @@ def context(tag, clear):
             click.echo("Tag not found; must be exact match")
             sys.exit(1)
         elif len(tags) > 1:
-            click.echo("More than one tag found. Only one tag allowed. Tags matching: %s" % ", ".join(tags))
+            click.echo(
+                "More than one tag found. Only one tag allowed. Tags matching: %s"
+                % ", ".join(tags)
+            )
             sys.exit(1)
-        yew.store.put_user_pref('tag_context',tags[0].tagid)
-        current_tag_context = yew.store.get_user_pref('tag_context')
+        yew.store.put_user_pref("tag_context", tags[0].tagid)
+        current_tag_context = yew.store.get_user_pref("tag_context")
 
     if clear:
-        yew.store.delete_user_pref('tag_context')
-        current_tag_context = yew.store.get_user_pref('tag_context')
+        yew.store.delete_user_pref("tag_context")
+        current_tag_context = yew.store.get_user_pref("tag_context")
 
     if current_tag_context:
         click.echo("current tag context: %s" % yew.store.get_tag(current_tag_context))
 
+
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('value', required=False)
+@click.argument("name", required=False)
+@click.argument("value", required=False)
 def global_pref(name, value):
     """Show or set global preferences.
 
@@ -235,8 +258,8 @@ def global_pref(name, value):
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('value', required=False)
+@click.argument("name", required=False)
+@click.argument("value", required=False)
 def user_pref(name, value):
     """Show or set global preferences.
 
@@ -244,37 +267,36 @@ def user_pref(name, value):
     Providing a value will set to that value.
 
     """
-    print('user-pref, name={}, value={}'.format(name, value))
+    print("user-pref, name={}, value={}".format(name, value))
     if name and not value:
         click.echo("%s = %s" % (name, yew.store.get_user_pref(name)))
     elif name and value:
         # set the user preference
         yew.store.put_user_pref(name, value)
     else:
-        print('asdfasf')
+        print("asdfasf")
         for k in YewStore.user_preferences:
             v = yew.store.get_user_pref(k)
             click.echo("%s = %s" % (k, v))
 
 
-
 def parse_ranges(s):
     """Parse s as a list of range specs."""
-    l = []  # return value is a list of doc indexes
-    ranges = s.split(',')
+    range_list = []  # return value is a list of doc indexes
+    ranges = s.split(",")
     # list of ranges
     for r in ranges:
         try:
             i = int(r)
-            l.append(i)
+            range_list.append(i)
         except ValueError:
             # check if range
-            if '-' in r:
-                start, end = r.split('-')
+            if "-" in r:
+                start, end = r.split("-")
                 start = int(start)
                 end = int(end)
-                l.extend([x for x in range(start, end + 1)])
-    return l
+                range_list.extend([x for x in range(start, end + 1)])
+    return range_list
 
 
 def document_menu(docs, multiple=False):
@@ -284,15 +306,15 @@ def document_menu(docs, multiple=False):
     for index, doc in enumerate(docs):
         click.echo("%s) %s" % (index, doc.name))
     if multiple:
-        v = click.prompt('Select document')
+        v = click.prompt("Select document")
         index_list = parse_ranges(v)
-        l = []
+        doc_list = []
         for i in index_list:
             if i in range(len(docs)):
-                l.append(docs[i])
-        return l  # returning a list of docs!!
+                doc_list.append(docs[i])
+        return doc_list  # returning a list of docs!!
     else:
-        v = click.prompt('Select document', type=int)
+        v = click.prompt("Select document", type=int)
         if v not in range(len(docs)):
             print("Choice not in range")
             sys.exit(1)
@@ -321,7 +343,7 @@ def get_document_selection(name, list_docs, multiple=False):
         return yew.store.get_short(name)
 
     if not name and not list_docs:
-        docs = yew.store.get_recent('yewser')
+        docs = yew.store.get_recent("yewser")
         return document_menu(docs, multiple)
     elif list_docs:
         docs = yew.store.get_docs()
@@ -333,16 +355,27 @@ def get_document_selection(name, list_docs, multiple=False):
         if len(docs) == 1:
             return docs[0]
         return document_menu(docs, multiple)
-    
+
     return None
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--open-file', '-o', is_flag=True, required=False, help="Open the file in your host operating system.")
-@click.option('--gpghome', '-g', required=False, default='.gnupg',
-              help="Your GnuGPG home directory, defaults to .gnupg")
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option(
+    "--open-file",
+    "-o",
+    is_flag=True,
+    required=False,
+    help="Open the file in your host operating system.",
+)
+@click.option(
+    "--gpghome",
+    "-g",
+    required=False,
+    default=".gnupg",
+    help="Your GnuGPG home directory, defaults to .gnupg",
+)
 def edit(name, list_docs, open_file, gpghome):
     """Edit a document.
 
@@ -365,7 +398,7 @@ def edit(name, list_docs, open_file, gpghome):
     # if doc is null, we didn't find one, ask if we should create:
     if not doc:
         if click.confirm("Couldn't find that document, shall we create it?"):
-            doc = yew.store.create_document(name, location='default', kind='md')
+            doc = yew.store.create_document(name, location="default", kind="md")
         else:
             sys.exit(0)
 
@@ -378,23 +411,27 @@ def edit(name, list_docs, open_file, gpghome):
         # send to host os to ask it how to open file
         click.launch(doc.get_path())
     else:
-        click.edit(editor='emacs', require_save=True, filename=doc.path)
-        
+        click.edit(editor="emacs", require_save=True, filename=doc.path)
+
     if encrypted:
         encrypt_file(doc.get_path(), email, gpghome)
     doc.toggle_encrypted()
 
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref('current_doc', doc.uid)
-    yew.store.update_recent('yewser', doc)
-
+    yew.store.put_user_pref("current_doc", doc.uid)
+    yew.store.update_recent("yewser", doc)
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--gpghome', '-g', required=False, default='.gnupg',
-              help="Your GnuGPG home directory, defaults to .gnupg")
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option(
+    "--gpghome",
+    "-g",
+    required=False,
+    default=".gnupg",
+    help="Your GnuGPG home directory, defaults to .gnupg",
+)
 def encrypt(name, list_docs, gpghome):
     """Encrypt a document.
 
@@ -405,21 +442,27 @@ def encrypt(name, list_docs, gpghome):
     # if doc is null, we didn't find one, ask if we should create:
     if not doc:
         sys.exit(0)
-        
+
     email = yew.store.get_user_pref("location.default.email")
 
     # try to encrypt in place
     encrypt_file(doc.get_path(), email, gpghome)
     doc.toggle_encrypted()
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref('current_doc', doc.uid)
-    yew.store.update_recent('yewser', doc)
-    
+    yew.store.put_user_pref("current_doc", doc.uid)
+    yew.store.update_recent("yewser", doc)
+
+
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--gpghome', '-g', required=False, default='.gnupg',
-              help="Your GnuGPG home directory, defaults to ")
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option(
+    "--gpghome",
+    "-g",
+    required=False,
+    default=".gnupg",
+    help="Your GnuGPG home directory, defaults to ",
+)
 def decrypt(name, list_docs, gpghome):
     """Decrypt a document.
 
@@ -430,21 +473,22 @@ def decrypt(name, list_docs, gpghome):
     # if doc is null, we didn't find one, ask if we should create:
     if not doc:
         sys.exit(0)
-        
+
     email = yew.store.get_user_pref("location.default.email")
 
     # try to decrypt in place
     decrypt_file(doc.get_path(), email, gpghome)
     doc.toggle_encrypted()
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref('current_doc', doc.uid)
-    yew.store.update_recent('yewser', doc)
-    
+    yew.store.put_user_pref("current_doc", doc.uid)
+    yew.store.update_recent("yewser", doc)
+
+
 @cli.command()
-@click.argument('spec', required=True)
-@click.option('--string-only', '-s', is_flag=True, required=False)
-@click.option('--insensitive', '-i', is_flag=True, required=False)
-#@click.option('--remote','-r',is_flag=True, required=False)
+@click.argument("spec", required=True)
+@click.option("--string-only", "-s", is_flag=True, required=False)
+@click.option("--insensitive", "-i", is_flag=True, required=False)
+# @click.option('--remote','-r',is_flag=True, required=False)
 def find(spec, string_only, insensitive):
     """Search for spec in contents of docs.
 
@@ -472,19 +516,19 @@ def find(spec, string_only, insensitive):
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--info', '-l', is_flag=True, required=False)
-@click.option('--remote', '-r', is_flag=True, required=False)
-@click.option('--humanize', '-h', is_flag=True, required=False)
-@click.option('--encrypted', '-e', is_flag=True, required=False)
-@click.option('--tags', '-t', required=False)
+@click.argument("name", required=False)
+@click.option("--info", "-l", is_flag=True, required=False)
+@click.option("--remote", "-r", is_flag=True, required=False)
+@click.option("--humanize", "-h", is_flag=True, required=False)
+@click.option("--encrypted", "-e", is_flag=True, required=False)
+@click.option("--tags", "-t", required=False)
 def ls(name, info, remote, humanize, encrypted, tags):
     """List documents."""
 
     if remote:
         response = yew.remote.get_docs()
         for doc in response:
-            click.echo("%s %s" % (get_short_uid(doc['uid']), doc['title']))
+            click.echo("%s %s" % (get_short_uid(doc["uid"]), doc["title"]))
 
         sys.exit(0)
     tag_objects = []
@@ -492,7 +536,7 @@ def ls(name, info, remote, humanize, encrypted, tags):
         tag_objects = yew.store.parse_tags(tags)
     else:
         # check for context
-        current_tag_context = yew.store.get_user_pref('tag_context')
+        current_tag_context = yew.store.get_user_pref("tag_context")
         if current_tag_context:
             tag_objects = [yew.store.get_tag(current_tag_context)]
             click.echo("Current tag context: %s" % str(tag_objects[0]))
@@ -504,7 +548,7 @@ def ls(name, info, remote, humanize, encrypted, tags):
         if info:
             if doc.is_link():
                 click.echo("ln ", nl=False)
-            else: 
+            else:
                 click.echo("   ", nl=False)
             click.echo(doc.short_uid(), nl=False)
             click.echo("   ", nl=False)
@@ -516,18 +560,29 @@ def ls(name, info, remote, humanize, encrypted, tags):
                 click.echo(str(doc.get_size()).rjust(10), nl=False)
             click.echo("   ", nl=False)
             if humanize:
-                click.echo(h.naturaltime(doc.get_last_updated_utc().replace(tzinfo=None)).rjust(15), nl=False)
+                click.echo(
+                    h.naturaltime(
+                        doc.get_last_updated_utc().replace(tzinfo=None)
+                    ).rjust(15),
+                    nl=False,
+                )
             else:
-                click.echo(doc.get_last_updated_utc().replace(microsecond=0).replace(tzinfo=None), nl=False)
+                click.echo(
+                    doc.get_last_updated_utc()
+                    .replace(microsecond=0)
+                    .replace(tzinfo=None),
+                    nl=False,
+                )
             if doc.is_encrypted():
-                click.echo(' (E)', nl=False)
+                click.echo(" (E)", nl=False)
             else:
                 click.echo("    ", nl=False)
         click.echo(doc.name, nl=False)
         if info:
             click.echo("   ", nl=False)
-            #click.echo(slugify(doc.name), nl=False)
-        click.echo('')
+            # click.echo(slugify(doc.name), nl=False)
+        click.echo("")
+
 
 def pdoc(doc, status, verbose):
     """Print status to stdout."""
@@ -535,20 +590,32 @@ def pdoc(doc, status, verbose):
     if status == Remote.STATUS_REMOTE_SAME and not verbose:
         print(".", end="", flush=True)
     else:
-        click.echo("", nl=True)        
+        click.echo("", nl=True)
         click.echo(doc.name, nl=False)
         msg = Remote.STATUS_MSG[status]
         click.echo(": ", nl=False)
-        click.secho(msg, fg='yellow')
-    
+        click.secho(msg, fg="yellow")
+
+
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--force', '-f', is_flag=True, required=False, 
-              help="Don't confirm deletes")
-@click.option('--prune', '-p', is_flag=True, required=False, 
-              help="Delete local docs marked as deleted on server")
-@click.option('--verbose', '-v', is_flag=True, required=False, 
-              help="Print document status even when no change")
+@click.argument("name", required=False)
+@click.option(
+    "--force", "-f", is_flag=True, required=False, help="Don't confirm deletes"
+)
+@click.option(
+    "--prune",
+    "-p",
+    is_flag=True,
+    required=False,
+    help="Delete local docs marked as deleted on server",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    required=False,
+    help="Print document status even when no change",
+)
 def sync(name, force, prune, verbose):
     """Pushes local docs and pulls docs from remote.
 
@@ -578,10 +645,10 @@ def sync(name, force, prune, verbose):
 
                 remote_doc = yew.remote.fetch(doc.uid)
                 # a dict
-                doc.put_content(remote_doc['content'])
-                if not remote_doc['title'] == doc.name:
-                    yew.store.rename_doc(doc, remote_doc['title'])
-                # click.secho("got remote", fg='green')
+                doc.put_content(remote_doc["content"])
+                if not remote_doc["title"] == doc.name:
+                    yew.store.rename_doc(doc, remote_doc["title"])
+                #  click.secho("got remote", fg='green')
                 pdoc(doc, c, v)
                 remote_done.append(doc.uid)
             elif c == Remote.STATUS_REMOTE_OLDER:
@@ -589,25 +656,27 @@ def sync(name, force, prune, verbose):
                 status_code = yew.remote.push_doc(doc)
                 if status_code == 200:
                     pdoc(doc, c, v)
-                    # click.secho('pushed successfully', fg='green')
+                    #  click.secho('pushed successfully', fg='green')
                 else:
-                    click.secho('push failed: {}, {}'.format(doc,status_code), fg='red')                
+                    click.secho(
+                        "push failed: {}, {}".format(doc, status_code), fg="red"
+                    )
 
                 remote_done.append(doc.uid)
             elif c == Remote.STATUS_DOES_NOT_EXIST:
-                # click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
+                #  click.echo("push new doc to remote       : %s %s" % (doc.short_uid(), doc.name))
                 print(yew.remote.push_doc(doc))
                 if r.status_code == 200:
-                    # click.secho('pushed successfully', fg='green')
+                    #  click.secho('pushed successfully', fg='green')
                     pdoc(doc, c, v)
                 else:
-                    click.secho('pushed failed', fg='red')                
+                    click.secho("pushed failed", fg="red")
                 remote_done.append(doc.uid)
             elif c == Remote.STATUS_REMOTE_DELETED:
                 # click.echo("remote was deleted           : %s %s" % (doc.short_uid(), doc.name))
                 if prune:
                     yew.store.delete_document(doc)
-                    # click.secho("pruned local", fg='green')
+                    #  click.secho("pruned local", fg='green')
                     pdoc(doc, c, v)
                 else:
                     pdoc(doc, c, v)
@@ -616,26 +685,30 @@ def sync(name, force, prune, verbose):
         except Exception as e:
             print("An error occured trying to sync {}".format(str(doc)))
             print(e)
-    print('')
+    print("")
 
     remote_docs = yew.remote.get_docs()
     for rdoc in remote_docs:
-        if rdoc['uid'] in remote_done:
+        if rdoc["uid"] in remote_done:
             continue
-        remote_doc = yew.remote.fetch(rdoc['uid'])
-        click.echo("importing doc: %s %s" % (remote_doc['uid'].split('-')[0], remote_doc['title']))
-        yew.store.import_document(remote_doc['uid'],
-                                  remote_doc['title'],
-                                  'default',
-                                  remote_doc['kind'],
-                                  remote_doc['content'])
+        remote_doc = yew.remote.fetch(rdoc["uid"])
+        click.echo(
+            "importing doc: %s %s"
+            % (remote_doc["uid"].split("-")[0], remote_doc["title"])
+        )
+        yew.store.import_document(
+            remote_doc["uid"],
+            remote_doc["title"],
+            "default",
+            remote_doc["kind"],
+            remote_doc["content"],
+        )
 
-    
     r = yew.remote.push_tag_associations()
     if not r.status_code == 200:
-        click.secho(r.text, fg='red')
-            
-    tags = yew.store.get_tags('')
+        click.secho(r.text, fg="red")
+
+    tags = yew.store.get_tags("")
     if len(tags) > 0:
         click.echo("syncing tags to server")
         tag_data = {}
@@ -648,22 +721,23 @@ def sync(name, force, prune, verbose):
     tags = yew.remote.pull_tags()
     if tags:
         click.echo("syncing tags from server")
-        for tagid,name in tags.items():
-            yew.store.sync_tag(tagid,name)
+        for tagid, name in tags.items():
+            yew.store.sync_tag(tagid, name)
 
     tag_docs = yew.remote.pull_tag_associations()
     if tag_docs:
         click.echo("syncing tag associations")
         for tag_association in tag_docs:
-            tid = tag_association['tid']
-            uid = tag_association['uid']
-            yew.store.associate_tag(uid,tid)
-            
+            tid = tag_association["tid"]
+            uid = tag_association["uid"]
+            yew.store.associate_tag(uid, tid)
+
+
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--force', '-f', is_flag=True, required=False)
-@click.option('--remote', '-r', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--force", "-f", is_flag=True, required=False)
+@click.option("--remote", "-r", is_flag=True, required=False)
 def delete(name, list_docs, force, remote):
     """Delete a document.
 
@@ -682,7 +756,7 @@ def delete(name, list_docs, force, remote):
         click.echo("Document: %s  %s" % (doc.uid, doc.name))
     d = True
     if not force:
-        d = click.confirm('Do you want to continue to delete the document(s)?')
+        d = click.confirm("Do you want to continue to delete the document(s)?")
     if d:
         for doc in docs:
             yew.store.delete_document(doc)
@@ -692,9 +766,9 @@ def delete(name, list_docs, force, remote):
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--remote', '-r', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--remote", "-r", is_flag=True, required=False)
 def show(name, list_docs, remote):
     """Send contents of document to stdout."""
 
@@ -702,7 +776,7 @@ def show(name, list_docs, remote):
     if remote:
         remote_doc = yew.remote.fetch(doc.uid)
         if remote_doc:
-            click.echo(remote_doc['content'])
+            click.echo(remote_doc["content"])
     else:
         if doc:
             click.echo(doc.get_content())
@@ -712,17 +786,17 @@ def show(name, list_docs, remote):
 
 
 def diff_content(doc1, doc2):
-    #d = difflib.Differ()
-    #diff = d.compare(doc1,doc2)
+    # d = difflib.Differ()
+    # diff = d.compare(doc1,doc2)
     diff = difflib.ndiff(doc1, doc2)
-    click.echo('\n'.join(list(diff)))
+    click.echo("\n".join(list(diff)))
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--remote', '-r', is_flag=True, required=False)
-@click.option('--diff', '-d', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--remote", "-r", is_flag=True, required=False)
+@click.option("--diff", "-d", is_flag=True, required=False)
 def describe(name, list_docs, remote, diff):
     """Show document details."""
 
@@ -737,19 +811,23 @@ def describe(name, list_docs, remote, diff):
             click.echo("%s: %s" % (k, v))
         status = yew.remote.doc_status(doc.uid)
         click.echo(Remote.STATUS_MSG[status])
-    if doc and diff and not status == Remote.STATUS_REMOTE_SAME \
-       and not Remote.STATUS_NO_CONNECTION:
+    if (
+        doc
+        and diff
+        and not status == Remote.STATUS_REMOTE_SAME
+        and not Remote.STATUS_NO_CONNECTION
+    ):
         remote_doc = yew.remote.fetch(doc.uid)
         s = diff_content(
-            remote_doc['content'].rstrip().splitlines(),
-            doc.get_content().rstrip().splitlines()
+            remote_doc["content"].rstrip().splitlines(),
+            doc.get_content().rstrip().splitlines(),
         )
         click.echo(s)
 
 
 @cli.command()
-@click.argument('name1', required=True)
-@click.argument('name2', required=True)
+@click.argument("name1", required=True)
+@click.argument("name2", required=True)
 def diff(name1, name2):
     """Compare two documents."""
 
@@ -759,7 +837,7 @@ def diff(name1, name2):
 
     s = diff_content(
         doc1.get_content().rstrip().splitlines(),
-        doc2.get_content().rstrip().splitlines()
+        doc2.get_content().rstrip().splitlines(),
     )
     click.echo(s)
 
@@ -787,8 +865,8 @@ def push():
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
 def head(name, list_docs):
     """Send start of document to stdout."""
 
@@ -797,8 +875,8 @@ def head(name, list_docs):
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
 def tail(name, list_docs):
     """Send end of document to stdout."""
 
@@ -807,25 +885,25 @@ def tail(name, list_docs):
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('new_name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.argument("new_name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
 def rename(name, new_name, list_docs):
     """Rename a document."""
-    
+
     doc = get_document_selection(name, list_docs)
     if not new_name:
         click.echo("Rename: '%s'" % doc.name)
-        new_name = click.prompt('Enter the new document title ', type=unicode)
+        new_name = click.prompt("Enter the new document title ", type=str)
     if new_name:
         doc = yew.store.rename_doc(doc, new_name)
     yew.remote.push_doc(doc)
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('kind', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.argument("kind", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
 def kind(name, kind, list_docs):
     """Change kind of document."""
 
@@ -835,7 +913,7 @@ def kind(name, kind, list_docs):
         click.echo("Current document kind: '%s'" % doc.kind)
         for i, d in enumerate(yew.store.doc_kinds):
             click.echo("%s" % (d))
-        kind = click.prompt('Select the new document kind ', type=str)
+        kind = click.prompt("Select the new document kind ", type=str)
     click.echo("Changing document kind to: %s" % kind)
     doc = yew.store.change_doc_kind(doc, kind)
     try:
@@ -843,6 +921,7 @@ def kind(name, kind, list_docs):
     except Exception as e:
         print(e)
     sys.exit(0)
+
 
 @cli.command()
 def ping():
@@ -874,24 +953,23 @@ def api():
         sys.exit(1)
     if r.status_code == 200:
         # content should be server time
-        s = json.dumps(r.json(), sort_keys=True,
-                       indent=4, separators=(',', ': '))
+        s = json.dumps(r.json(), sort_keys=True, indent=4, separators=(",", ": "))
         click.echo(s)
         sys.exit(0)
     click.echo("ERROR HTTP code: %s" % r.status_code)
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('template', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--tags', '-t', required=False)
+@click.argument("name", required=False)
+@click.argument("template", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--tags", "-t", required=False)
 def browse(name, template, list_docs, tags):
     """Convert to html and attempt to load in web browser.
 
     Provide a name spec or tags to select documents.
 
-    You can provide your own Jinja (http://jinja.pocoo.org/) 
+    You can provide your own Jinja (http://jinja.pocoo.org/)
     template. Leave this out to use the default.
 
     """
@@ -901,13 +979,13 @@ def browse(name, template, list_docs, tags):
     else:
         # get our default
         p = os.path.realpath(__file__)
-        template_path = os.path.dirname(p)    
-        template_path = os.path.join(template_path, 'template_0.html')
+        template_path = os.path.dirname(p)
+        template_path = os.path.join(template_path, "template_0.html")
     if not os.path.exists(template_path):
         click.echo("does not exist: {}".format(template_path))
         sys.exit(1)
-    
-    input_formats = ['md', 'rst']
+
+    input_formats = ["md", "rst"]
 
     if tags:
         tag_objects = yew.store.parse_tags(tags)
@@ -916,38 +994,28 @@ def browse(name, template, list_docs, tags):
     else:
         docs = yew.store.get_docs(tag_objects=tag_objects)
 
-
-    nav = ''
+    nav = ""
     for doc in docs:
         tmp_dir = yew.store.get_tmp_directory()
         tmp_file = os.path.join(tmp_dir, doc.get_safe_name() + ".html")
         a = '<a href="file://%s">%s</a><br/>\n' % (tmp_file, doc.name)
         nav += a
     for doc in docs:
-        if doc.kind == 'md':
+        if doc.kind == "md":
             html = markdown.markdown(doc.get_content())
         else:
             if doc.kind not in input_formats:
-                kind = 'md'
+                kind = "md"
             else:
                 kind = doc.kind
-            html = pypandoc.convert(
-                doc.get_path(),
-                format=kind,
-                to='html'
-
-            )
+            html = pypandoc.convert(doc.get_path(), format=kind, to="html")
         tmp_dir = yew.store.get_tmp_directory()
         tmp_file = os.path.join(tmp_dir, doc.get_safe_name() + ".html")
-        with click.open_file(template_path, 'r') as f:
+        with click.open_file(template_path, "r") as f:
             t = f.read()
 
         template = Template(t)
-        data = {
-            "title": doc.name,
-            "content": html,
-            "nav": nav
-        }
+        data = {"title": doc.name, "content": html, "nav": nav}
         dest = template.render(data)
 
         # template = string.Template(t)
@@ -956,17 +1024,17 @@ def browse(name, template, list_docs, tags):
         #     content=html,
         #     nav=nav
         # )
-        f = codecs.open(tmp_file, 'w', 'utf-8').write(dest)
-        
+        f = codecs.open(tmp_file, "w", "utf-8").write(dest)
+
     click.launch(tmp_file)
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('destination_format', required=False)
-@click.argument('destination_file', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--formats', '-f', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.argument("destination_format", required=False)
+@click.argument("destination_file", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--formats", "-f", is_flag=True, required=False)
 def convert(name, destination_format, destination_file, list_docs, formats):
     """Convert to destination_format and print to stdout or save to file if provided."""
 
@@ -985,28 +1053,30 @@ def convert(name, destination_format, destination_file, list_docs, formats):
     click.echo(doc.kind)
     click.echo(destination_format)
 
-    if destination_format in ['docx', 'pdf', 'odt',]:
+    if destination_format in ["docx", "pdf", "odt"]:
         destination_file = u"{}.{}".format(slugify(doc.name), destination_format)
-    
+
     if destination_file:
-        dest = pypandoc.convert(doc.get_content(),
-                                format=doc.kind,
-                                to=destination_format,
-                                outputfile=destination_file)
+        dest = pypandoc.convert(
+            doc.get_content(),
+            format=doc.kind,
+            to=destination_format,
+            outputfile=destination_file,
+        )
         click.echo(destination_file)
     else:
-        dest = pypandoc.convert(doc.get_content(),
-                                format=doc.kind,
-                                to=destination_format)
+        dest = pypandoc.convert(
+            doc.get_content(), format=doc.kind, to=destination_format
+        )
         click.echo(dest)
     sys.stdout.flush()
 
 
 @cli.command()
-@click.argument('path', required=True)
-@click.option('--kind', '-k', required=False)
-@click.option('--force', '-f', is_flag=True, required=False)
-@click.option('--symlink', '-s', is_flag=True, required=False)
+@click.argument("path", required=True)
+@click.option("--kind", "-k", required=False)
+@click.option("--force", "-f", is_flag=True, required=False)
+@click.option("--symlink", "-s", is_flag=True, required=False)
 def take(path, kind, force, symlink):
     """Import a file as a document.
 
@@ -1026,16 +1096,16 @@ def take(path, kind, force, symlink):
 
     # slurp file
     if not symlink:
-        with click.open_file(path, 'r', 'utf-8') as f:
+        with click.open_file(path, "r", "utf-8") as f:
             content = f.read()
 
     # get location, filename, etc.
     fn = os.path.basename(path)
-    filename, file_extension = os.path.splitext(fn)    
+    filename, file_extension = os.path.splitext(fn)
     if not kind:
-        kind = 'txt'
+        kind = "txt"
     title = os.path.splitext(path)[0]
-    
+
     # check if we have one with this title
     # the behaviour we want is for the user to continuously
     # ingest the same file that might be updated out-of-band
@@ -1045,27 +1115,28 @@ def take(path, kind, force, symlink):
         if len(docs) >= 1:
             if not force:
                 click.echo("A document with this title exists already")
-            if force or click.confirm("Overwrite existing document: %s ?" % docs[0].name, abort=True):
+            if force or click.confirm(
+                "Overwrite existing document: %s ?" % docs[0].name, abort=True
+            ):
                 docs[0].put_content(content)
                 yew.remote.push_doc(docs[0])
                 sys.exit(0)
 
     if symlink:
-        doc = yew.store.create_document(title, 
-                                        'default', 
-                                        kind,
-                                        symlink_source_path=path)
+        doc = yew.store.create_document(
+            title, "default", kind, symlink_source_path=path
+        )
         click.echo("Symlinked: %s" % doc.uid)
     else:
-        doc = yew.store.create_document(title, 'default', kind)
+        doc = yew.store.create_document(title, "default", kind)
         doc.put_content(content)
     yew.remote.push_doc(doc)
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.argument('path', required=True)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
+@click.argument("name", required=False)
+@click.argument("path", required=True)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
 def attach(name, path, list_docs):
     """Take a file and put into media folder.
 
@@ -1083,8 +1154,8 @@ def attach(name, path, list_docs):
     dest_path = os.path.join(doc.get_media_path(), filename)
 
     # copy file
-    with click.open_file(path, 'r') as f_in:
-        with click.open_file(dest_path, 'w') as f_out:
+    with click.open_file(path, "r") as f_in:
+        with click.open_file(dest_path, "w") as f_out:
             f_out.write(f_in.read())
 
 
@@ -1096,12 +1167,12 @@ def _configure():
 
     """
     # the preferences need to be in the form:
-    # location.default.username
+    #  location.default.username
     for pref in yew.store.user_preferences:
-        if 'token' in pref or 'password' in pref:
+        if "token" in pref or "password" in pref:
             continue
         d = yew.store.get_user_pref(pref)
-        p = pref.split('.')
+        p = pref.split(".")
         i = p[2]
         value = click.prompt("Enter %s" % i, default=d, type=str)
         click.echo(pref + "==" + value)
@@ -1113,49 +1184,53 @@ def configure():
     """Get configuration information from user."""
     _configure()
 
+
 def _authenticate(username, password):
     """Authenticate with remote and populate local data."""
 
-    r = yew.remote.authenticate_user(data={
-        "username": username,
-        "password": password,
-    })
+    r = yew.remote.authenticate_user(data={"username": username, "password": password})
     if r.status_code == 200:
         data = r.json()
         yew.store.put_user_pref("location.default.username", username)
         yew.store.put_user_pref("location.default.password", password)
-        yew.store.put_user_pref("location.default.email", data['email'])
-        yew.store.put_user_pref("location.default.first_name", data['first_name'])
-        yew.store.put_user_pref("location.default.last_name", data['last_name'])
-        yew.store.put_user_pref("location.default.token", data['token'])
+        yew.store.put_user_pref("location.default.email", data["email"])
+        yew.store.put_user_pref("location.default.first_name", data["first_name"])
+        yew.store.put_user_pref("location.default.last_name", data["last_name"])
+        yew.store.put_user_pref("location.default.token", data["token"])
         click.echo("You authenticated successfully. Try `yd sync`.")
     else:
         click.echo("ERORR: {}, {}".format(r.status_code, r.content))
     return r.status_code
+
 
 @cli.command()
 def authenticate():
     """Authenticate with remote and get token.
 
     You'll be asked for a username/password.
-    If you are successfully authenticated by remote, 
+    If you are successfully authenticated by remote,
     the local system will be configured with the account
-    of username. 
+    of username.
 
     """
-    username = click.prompt("Enter username ",
-                            default=yew.store.get_user_pref("location.default.username"),
-                            type=str)
+    username = click.prompt(
+        "Enter username ",
+        default=yew.store.get_user_pref("location.default.username"),
+        type=str,
+    )
     password = click.prompt("Enter password ", hide_input=True, type=str)
-    
+
     current_username = yew.store.get_user_pref("location.default.username")
     if current_username and not current_username == username:
-        if click.confirm("You entered a username that does not match the current system username. Continue?"):
+        if click.confirm(
+            "You entered a username that does not match the current system username. Continue?"
+        ):
             pass
         else:
             sys.exit(0)
     _authenticate(username, password)
-    
+
+
 @cli.command()
 def register():
     """Try to setup a new user account on remote."""
@@ -1173,17 +1248,21 @@ def register():
     first_name = yew.store.get_user_pref("location.default.first_name")
     last_name = yew.store.get_user_pref("location.default.last_name")
     p = SG("[\w\d]{12}").render()
-    password = click.prompt("Enter a new password or accept the default ", default=p, type=str)
-    r = yew.remote.register_user(data={
-        "username": username,
-        "email": email,
-        "password": password,
-        "first_name": first_name,
-        "last_name": last_name,
-    })
+    password = click.prompt(
+        "Enter a new password or accept the default ", default=p, type=str
+    )
+    r = yew.remote.register_user(
+        data={
+            "username": username,
+            "email": email,
+            "password": password,
+            "first_name": first_name,
+            "last_name": last_name,
+        }
+    )
     if r.status_code == 200:
         data = json.loads(r.content)
-        yew.store.put_user_pref("location.default.token", data['token'])
+        yew.store.put_user_pref("location.default.token", data["token"])
     else:
         click.echo("Something went wrong")
         click.echo("status code: %s" % r.status_code)
@@ -1191,12 +1270,20 @@ def register():
 
 
 @cli.command()
-@click.argument('name', required=False)
-@click.option('--list_docs', '-l', is_flag=True, required=False)
-@click.option('--location', required=False)
-@click.option('--kind', '-k', required=False)
-@click.option('--create', '-c', is_flag=True, required=False, help="Create a new document")
-@click.option('--append', '-a', is_flag=True, required=False, help="Append to an existing document")
+@click.argument("name", required=False)
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--location", required=False)
+@click.option("--kind", "-k", required=False)
+@click.option(
+    "--create", "-c", is_flag=True, required=False, help="Create a new document"
+)
+@click.option(
+    "--append",
+    "-a",
+    is_flag=True,
+    required=False,
+    help="Append to an existing document",
+)
 def read(name, list_docs, location, kind, create, append):
     """Get input from stdin and either create a new document or append to an existing one.
 
@@ -1213,14 +1300,14 @@ def read(name, list_docs, location, kind, create, append):
         click.echo("a name must be provided when creating")
         sys.exit(1)
 
-    #f = click.open_file('-','r')
-    #f = sys.stdin
+    # f = click.open_file('-','r')
+    # f = sys.stdin
 
-    content = ''
+    content = ""
 
     # if sys.stdin.isatty() or True:
     #     content = sys.stdin.read()
-    with click.open_file('-', 'r', 'utf-8') as f:
+    with click.open_file("-", "r", "utf-8") as f:
         content = f.read()
 
     if not (name or create or append):
@@ -1241,10 +1328,10 @@ def read(name, list_docs, location, kind, create, append):
     if kind_tmp and not kind:
         kind = kind_tmp
     else:
-        kind = 'md'
+        kind = "md"
 
     if not location:
-        location = 'default'
+        location = "default"
 
     if create or not append:
         doc = yew.store.create_document(name, location, kind, content=content)
@@ -1252,22 +1339,23 @@ def read(name, list_docs, location, kind, create, append):
         s = doc.get_content() + content
         doc.put_content(s)
 
+
 @cli.command()
 def info():
     home = expanduser("~")
-    file_path = os.path.join(home, '.yew')
+    file_path = os.path.join(home, ".yew")
     print("Python version: ", sys.version)
     print("~/.yew exists: {}".format(os.path.exists(file_path)))
-    print("YEWDOC_USER env: {}".format(os.getenv('YEWDOC_USER')))
+    print("YEWDOC_USER env: {}".format(os.getenv("YEWDOC_USER")))
     print("username: {}".format(yew.store.username))
     print("doc store: {}".format(yew.store.get_user_directory()))
     counts = yew.store.get_counts()
-    print("documents={}, tags={}".format(counts['documents'], counts['tags']))
+    print("documents={}, tags={}".format(counts["documents"], counts["tags"]))
     email = None
     for k in YewStore.user_preferences:
-        if not 'password' in k:
+        if "password" not in k:
             v = yew.store.get_user_pref(k)
-            if k == 'location.default.email':
+            if k == "location.default.email":
                 email = v
             click.echo("%s = %s" % (k, v))
     prefs = yew.store.get_globals()
@@ -1289,21 +1377,21 @@ def info():
     print("Encryption: {}".format(email))
     print("gnupg dir: {}".format(yew.store.get_gnupg_exists()))
     if yew.store.get_gnupg_exists():
-        Args = namedtuple('Args', 'gpg_dir')
-        args = Args(gpg_dir='.gnupg')
+        Args = namedtuple("Args", "gpg_dir")
+        args = Args(gpg_dir=".gnupg")
         keys = list_keys(args)
         print("Public keys")
         for public_key in keys[0]:
-            for uid in public_key['uids']:
-                print(uid, end='')
+            for uid in public_key["uids"]:
+                print(uid, end="")
                 if email in uid:
                     print(" <= identity in use")
                 else:
                     print("")
-        print("Private keys")        
+        print("Private keys")
         for private_key in keys[1]:
-            for uid in private_key['uids']:
-                print(uid, end='')
+            for uid in private_key["uids"]:
+                print(uid, end="")
                 if email in uid:
                     print(" <= identity in use")
                 else:

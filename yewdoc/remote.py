@@ -22,13 +22,16 @@ import markdown
 import difflib
 import re
 
+
 class RemoteException(Exception):
     """Custom exception for remote errors."""
+
     pass
 
 
 class OfflineException(Exception):
     """Raised if remote operation attempted when offline."""
+
     pass
 
 
@@ -37,9 +40,9 @@ class Remote(object):
 
     def __init__(self, store):
         self.store = store
-        self.token = u"Token %s" % self.store.get_user_pref('location.default.token')
-        self.headers = {'Authorization': self.token, "Content-Type": "application/json"}
-        self.url = self.store.get_user_pref('location.default.url')
+        self.token = u"Token %s" % self.store.get_user_pref("location.default.token")
+        self.headers = {"Authorization": self.token, "Content-Type": "application/json"}
+        self.url = self.store.get_user_pref("location.default.url")
         self.verify = False
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
@@ -47,14 +50,16 @@ class Remote(object):
 
         if not self.url:
             self.url = "https://doc.yew.io"
-        
+
         # if store thinks we are offline
         self.offline = store.offline
 
     def check_data(self):
         if not self.token or not self.url:
-            raise RemoteException("""Token and url required to reach server. Check user prefs.
-            Try: 'yd configure'""")
+            raise RemoteException(
+                """Token and url required to reach server. Check user prefs.
+            Try: 'yd configure'"""
+            )
 
     def get_headers(self):
         """Get headers used for remote calls."""
@@ -64,20 +69,22 @@ class Remote(object):
         """Perform get on remote with endpoint."""
         self.check_data()
         url = u"%s/api/%s/" % (self.url, endpoint)
-        return requests.get(url,
-                            headers=self.headers,
-                            params=data,
-                            verify=self.verify,
-                            timeout=timeout)
+        return requests.get(
+            url, headers=self.headers, params=data, verify=self.verify, timeout=timeout
+        )
 
     def post(self, endpoint, data={}):
         """Perform post on remote."""
         url = u"%s/api/%s/" % (self.url, endpoint)
-        return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
+        return requests.post(
+            url, headers=self.headers, data=json.dumps(data), verify=self.verify
+        )
 
     def unauthenticated_post(self, endpoint, data={}):
         url = u"%s/%s/" % (self.url, endpoint)
-        return requests.post(url, headers=self.headers, data=json.dumps(data), verify=self.verify)
+        return requests.post(
+            url, headers=self.headers, data=json.dumps(data), verify=self.verify
+        )
 
     def delete(self, endpoint):
         """Perform delete on remote."""
@@ -162,7 +169,7 @@ class Remote(object):
         r = self.get("exists", {"uid": uid})
         if r and r.status_code == 200:
             data = json.loads(r.content)
-            if 'digest' in data:
+            if "digest" in data:
                 return data
         elif r and r.status_code == 404:
             return None
@@ -230,13 +237,13 @@ class Remote(object):
         if not rexists:
             return Remote.STATUS_DOES_NOT_EXIST
 
-        if 'deleted' in rexists:
+        if "deleted" in rexists:
             return Remote.STATUS_REMOTE_DELETED
 
-        if rexists and rexists['digest'] == doc.get_digest():
+        if rexists and rexists["digest"] == doc.get_digest():
             return Remote.STATUS_REMOTE_SAME
 
-        remote_dt = dateutil.parser.parse(rexists['date_updated'])
+        remote_dt = dateutil.parser.parse(rexists["date_updated"])
         remote_newer = remote_dt > doc.get_last_updated_utc()
         if remote_newer:
             return Remote.STATUS_REMOTE_NEWER
@@ -247,9 +254,9 @@ class Remote(object):
         pass
 
     def remote_configured(self):
-        token = self.store.get_user_pref('location.default.token')
+        token = self.store.get_user_pref("location.default.token")
         return True if token else False
-    
+
     def push_doc(self, doc):
         """Serialize and send document.
 
@@ -259,19 +266,21 @@ class Remote(object):
         """
         if self.offline:
             raise OfflineException()
-        
+
         if not self.remote_configured():
             return Remote.STATUS_NO_CONNECTION
-        
+
         try:
             status = self.doc_status(doc.uid)
         except RemoteException:
             click.echo("could not reach remote")
             return Remote.STATUS_NO_CONNECTION
-        
-        if status == Remote.STATUS_REMOTE_SAME \
-           or status == Remote.STATUS_REMOTE_NEWER \
-           or status == Remote.STATUS_REMOTE_DELETED:
+
+        if (
+            status == Remote.STATUS_REMOTE_SAME
+            or status == Remote.STATUS_REMOTE_NEWER
+            or status == Remote.STATUS_REMOTE_DELETED
+        ):
             return status
 
         data = doc.serialize()
@@ -291,7 +300,6 @@ class Remote(object):
 
         return status
 
-
     def get_token(self, remote_username, password):
         """Get and store token for a registered user.
 
@@ -309,9 +317,11 @@ class Remote(object):
         """
         if self.offline:
             raise OfflineException()
-        
+
         url = "%s/api/tag_list/" % (self.url)
-        return requests.post(url, data=json.dumps(tag_data), headers=self.headers, verify=self.verify)
+        return requests.post(
+            url, data=json.dumps(tag_data), headers=self.headers, verify=self.verify
+        )
 
     def push_tag_associations(self):
         """Post tag associations to server.
@@ -321,17 +331,18 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
 
-        tag_docs = self.store.get_tag_associations()   
+        tag_docs = self.store.get_tag_associations()
         data = []
         for tag_doc in tag_docs:
             td = {}
-            td['uid'] = tag_doc.uid
-            td['tid'] = tag_doc.tagid
+            td["uid"] = tag_doc.uid
+            td["tid"] = tag_doc.tagid
             data.append(td)
         url = "%s/api/tag_docs/" % (self.url)
-        r = requests.post(url, data=json.dumps(data), headers=self.headers, verify=self.verify)
+        r = requests.post(
+            url, data=json.dumps(data), headers=self.headers, verify=self.verify
+        )
         return r
-
 
     def pull_tags(self):
         """Pull tags from server.
@@ -339,20 +350,18 @@ class Remote(object):
         """
         if self.offline:
             raise OfflineException()
-        
+
         url = "%s/api/tag_list/" % (self.url)
         r = requests.get(url, headers=self.headers, verify=self.verify)
         return json.loads(r.content)
 
-    
     def pull_tag_associations(self):
         """Pull tags from server.
 
         """
         if self.offline:
             raise OfflineException()
-        
+
         url = "%s/api/tag_docs/" % (self.url)
         r = requests.get(url, headers=self.headers, verify=self.verify)
         return json.loads(r.content)
-
