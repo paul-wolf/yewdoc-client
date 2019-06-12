@@ -1,17 +1,13 @@
 language: python
 python:
-#  - "2.6"
-  - "2.7"
-#  - "3.2"
-#   - "3.3"
-  - "3.4"
   - "3.5"
   - "3.6"
-  - "nightly" 
+  - "3.7"
+  - "nightly"
 
 before_install:
   - sudo apt-get install pandoc
-  
+
 install:
   - pip install -r requirements.txt
   - pip install --editable .
@@ -24,4 +20,4 @@ branches:
 
 notifications:
   email: true
-  
+

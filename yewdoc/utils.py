@@ -45,8 +45,8 @@ def slugify(value):
     import unicodedata
 
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
-    value = re.sub("[^\w\s-]", "", value).strip().lower()
-    # ... re.sub('[-\s]+', '-', value)
+    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
+    # ... re.sub(r'[-\s]+', '-', value)
     value = "-".join(value.split()).lower()
     return value
 
@@ -61,14 +61,14 @@ def err():
 def is_uuid(uid):
     """Return non-None if uid is a uuid."""
     uuidregex = re.compile(
-        "[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z", re.I
+        r"[0-9a-f]{8}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{4}\-[0-9a-f]{12}\Z", re.I
     )
     return uuidregex.match(uid)
 
 
 def is_short_uuid(s):
     """Return non-None if uid is a uuid."""
-    uuid_short_regex = re.compile("[0-9a-f]{8}\Z", re.I)
+    uuid_short_regex = re.compile(r"[0-9a-f]{8}\Z", re.I)
     return uuid_short_regex.match(s)
 
 

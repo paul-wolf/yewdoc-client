@@ -407,7 +407,7 @@ class YewStore(object):
         """Create a new tag. Make sure it is unique."""
 
         c = self.conn.cursor()
-        tagid = SG("#[\l\d]{8}").render()
+        tagid = SG(r"#[\l\d]{8}").render()
         s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
         # print "INSERT OR IGNORE INTO tag VALUES ('%s','%s','%s')" % (self.location,tagid,name)
         c.execute(s, (self.location, tagid, name))

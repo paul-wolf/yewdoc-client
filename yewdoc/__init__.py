@@ -1065,7 +1065,7 @@ def convert(name, destination_format, destination_file, list_docs, formats):
         )
         click.echo(destination_file)
     else:
-        dest = pypandoc.convert(
+        dest = pypandoc.convert_text(
             doc.get_content(), format=doc.kind, to=destination_format
         )
         click.echo(dest)
@@ -1247,7 +1247,7 @@ def register():
     email = yew.store.get_user_pref("location.default.email")
     first_name = yew.store.get_user_pref("location.default.first_name")
     last_name = yew.store.get_user_pref("location.default.last_name")
-    p = SG("[\w\d]{12}").render()
+    p = SG(r"[\w\d]{12}").render()
     password = click.prompt(
         "Enter a new password or accept the default ", default=p, type=str
     )

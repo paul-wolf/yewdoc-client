@@ -23,6 +23,7 @@ yapf = "*"
 fs = "*"
 python-gnupg = "*"
 mock = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.7"
