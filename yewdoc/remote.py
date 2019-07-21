@@ -65,7 +65,7 @@ class Remote(object):
         """Get headers used for remote calls."""
         return self.headers
 
-    def get(self, endpoint, data={}, timeout=3):
+    def get(self, endpoint, data={}, timeout=10):
         """Perform get on remote with endpoint."""
         self.check_data()
         url = u"%s/api/%s/" % (self.url, endpoint)
