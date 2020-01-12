@@ -1002,7 +1002,13 @@ def browse(name, template, list_docs, tags):
         nav += a
     for doc in docs:
         if doc.kind == "md":
-            html = markdown.markdown(doc.get_content())
+            #  html = markdown.markdown(doc.get_content())
+            pdoc_args = ["--mathjax"]
+
+            html = pypandoc.convert(
+                doc.get_path(), format="md", to="html5", extra_args=pdoc_args
+            )
+
         else:
             if doc.kind not in input_formats:
                 kind = "md"
