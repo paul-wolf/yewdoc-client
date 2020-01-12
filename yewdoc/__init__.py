@@ -987,8 +987,7 @@ def browse(name, template, list_docs, tags):
 
     input_formats = ["md", "rst"]
 
-    if tags:
-        tag_objects = yew.store.parse_tags(tags)
+    tag_objects = yew.store.parse_tags(tags) if tags else None
     if name:
         docs = yew.store.search_names(name)
     else:
