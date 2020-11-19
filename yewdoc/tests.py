@@ -23,7 +23,6 @@ from yewdoc import (
     diff,
     edit,
     find,
-    global_pref,
     head,
     ls,
     ping,
@@ -40,6 +39,21 @@ from yewdoc import (
     user_pref,
 )
 
+USER_PREFS = {
+    "yewser": {
+        "location": {
+            "default": {
+                "url": "https://doc.yew.io",
+                "email": "paul.wolf@ripeco.com",
+                "username": "paul",
+                "password": "adsfasdfasdfsadf",
+                "first_name": "Paul",
+                "last_name": "Wolf",
+                "token": "c099f4d10a163e685289c981eadef04c2b839455"
+            }
+        }
+    }
+}
 
 class MockRemote(object):
     def authenticate_user(self, data):
@@ -206,11 +220,6 @@ class TestYewdocsClient(unittest.TestCase):
         print(result.output)
         assert result.exit_code == 0
 
-    def test_global_pref(self):
-        runner = CliRunner()
-        runner.invoke(cli, ["global-pref"])
-        # assert result.exit_code == 0
-        # print(result.output)
 
     def test_user_pref(self):
         runner = CliRunner()

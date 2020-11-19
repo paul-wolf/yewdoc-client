@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import List
+from typing import List, Optional, Dict
 import codecs
 import datetime
 import difflib
@@ -43,24 +43,24 @@ from .utils import (
 from . document import Document
 from . tag import Tag, TagDoc
 from . import file_system as fs
-# get_username, get_user_directory, get_user_directory, get_storage_directory, get_tmp_directory
-# settings as prefs
+from . settings import Preferences
 
 class YewStore(object):
     """Our data store.
 
-    Persistent user and project preferences.
+    Handle storage of documents.
 
     """
 
     def __init__(self, username=None):
-        """Make sure storage is setup."""
+        """Init data required to find things on this local disk."""
 
         self.yew_dir = fs.get_user_directory(fs.get_username(username))
         self.yewdb_path = os.path.join(self.yew_dir, "yew.db")
         self.conn = self.make_db(self.yewdb_path)
         self.username = fs.get_username(username)
-        self.offline = self.get_global("offline", False)
+        self.prefs = Preferences(self.username)
+        self.offline = False
         self.location = "default"
 
     def get_gnupg_exists(self):
@@ -71,28 +71,7 @@ class YewStore(object):
         """Create the db if not exist and get or create tables."""
         conn = sqlite3.connect(path)
         c = conn.cursor()
-        sql = """
-        CREATE TABLE IF NOT EXISTS global_prefs (
-           key NOT NULL,
-           value NOT NULL
-        );
-        """
-        c.execute(sql)
 
-        sql = """CREATE TABLE IF NOT EXISTS user_prefs (
-           username NOT NULL,
-           key NOT NULL,
-           value NOT NULL
-        );"""
-        c.execute(sql)
-
-        sql = """CREATE TABLE IF NOT EXISTS user_project_prefs (
-           username NOT NULL,
-           project NOT NULL,
-           key NOT NULL,
-           value NOT NULL
-        );"""
-        c.execute(sql)
 
         sql = """CREATE TABLE IF NOT EXISTS document (
            uid NOT NULL,
@@ -108,16 +87,6 @@ class YewStore(object):
         try:
             sql = """
             ALTER TABLE Document ADD COLUMN encrypt INTEGER
-            """
-            c.execute(sql)
-        except Exception:
-            # if it is already added
-            #  print(e)
-            pass
-
-        try:
-            sql = """
-            ALTER TABLE Document ADD COLUMN ipfs_hash
             """
             c.execute(sql)
         except Exception:
@@ -289,155 +258,6 @@ class YewStore(object):
 
         self.conn.commit()
 
-    def update_recent(self, username, doc):
-        """Update most recent list.
-
-        Return list of uids.
-
-        """
-
-        list_unparsed = self.get_user_pref("recent_list")
-        if list_unparsed:
-            list_parsed = json.loads(list_unparsed)
-        else:
-            list_parsed = []
-        if doc.uid in list_parsed:
-            list_parsed.remove(doc.uid)  # take it out
-        list_parsed.insert(0, doc.uid)  # make it the first one
-        # now save the new list
-        self.put_user_pref("recent_list", json.dumps(list_parsed))
-
-    def get_recent(self, username):
-        """Get most recent documents."""
-
-        list_unparsed = self.get_user_pref("recent_list")
-        docs = []
-        if list_unparsed:
-            list_parsed = json.loads(list_unparsed)
-            for uid in list_parsed:
-                d = self.get_doc(uid)
-                if d:
-                    docs.append(d)
-            return docs
-        return []
-
-    def get_global(self, k, default=None):
-        # print "get_global (key): ", k
-        v = None
-        c = self.conn.cursor()
-        sql = "SELECT value FROM global_prefs WHERE key = ?"
-        c.execute(sql, (k,))
-        row = c.fetchone()
-        if row:
-            v = row[0]
-        c.close()
-        if not v and default:
-            return default
-        return v
-
-    def get_globals(self):
-        """Get all global prefs."""
-        c = self.conn.cursor()
-        sql = "SELECT key,value FROM global_prefs"
-        c.execute(sql)
-        rows = c.fetchall()
-        c.close()
-        return rows
-
-    def put_global(self, k, v):
-        """Set a global preference. Must be in class var global_preferences."""
-
-        if k not in YewStore.global_preferences:
-            raise ValueError(
-                "Unknown global preference: %s. Choices are: %s"
-                % (k, ", ".join(YewStore.global_preferences))
-            )
-        # print "put_global (%s,%s)" % (k,v)
-        if not k or not v:
-            print("not storing nulls")
-            return  # don't store null values
-        c = self.conn.cursor()
-        if self.get_global(k):
-            sql = "UPDATE global_prefs SET value = ? WHERE key = ?"
-            # print "UPDATE global_prefs SET value = '%s' WHERE key = '%s'" % (v,k)
-            c.execute(sql, (v, k))
-            click.echo("updated global: %s = %s" % (k, self.get_global(k)))
-        else:
-            sql = "INSERT INTO global_prefs VALUES (?,?)"
-            c.execute(sql, (k, v))
-            click.echo("created global: %s = %s" % (k, self.get_global(k)))
-
-        self.conn.commit()
-        c.close()
-
-    def get_user_pref(self, k):
-        # print "get_user_pref (%s,%s): " % (username,k)
-        username = self.username
-        v = None
-        c = self.conn.cursor()
-        sql = "SELECT value FROM user_prefs WHERE username = ? AND key = ?"
-        c.execute(sql, (username, k))
-        row = c.fetchone()
-        if row:
-            v = row[0]
-        c.close()
-        return v
-
-    def put_user_pref(self, k, v):
-        username = self.username
-        # print "put_user_pref (%s,%s,%s): "% (username,k,v)
-        if not k or not v:
-            click.echo("not storing nulls")
-            return  # don't store null values
-        c = self.conn.cursor()
-        if self.get_user_pref(k):
-            sql = "UPDATE user_prefs SET value = ? WHERE username = ? AND key = ?"
-            # print "UPDATE user_prefs SET value = %s WHERE username = %s AND key = %s" % (v,username,k)
-            c.execute(sql, (v, username, k))
-            self.conn.commit()
-        else:
-            sql = "INSERT INTO user_prefs VALUES (?,?,?)"
-            c.execute(sql, (username, k, v))
-            self.conn.commit()
-        # print self.get_user_pref(username,k)
-
-        c.close()
-
-    def delete_user_pref(self, k):
-        username = self.username
-        print("delete_user_pref (%s,%s): " % (username, k))
-        c = self.conn.cursor()
-        sql = "DELETE FROM user_prefs WHERE username = ? AND key = ?"
-        c.execute(sql, (username, k))
-        self.conn.commit()
-        return
-
-    def get_user_project_pref(self, username, project, k):
-        # print "get_user_pref (%s,%s): " % (username,k)
-        v = None
-        c = self.conn.cursor()
-        sql = "SELECT value FROM user_project_prefs WHERE username = ? AND project = ? AND key = ?"
-        c.execute(sql, (username, project, k))
-        row = c.fetchone()
-        if row:
-            v = row[0]
-        c.close()
-        return v
-
-    def put_user_project_pref(self, username, project, k, v):
-        # print "put_user_pref (%s,%s,%s): "% (username,k,v)
-        if not username or not project or not k or not v:
-            print("not storing nulls")
-            return  # don't store null values
-        c = self.conn.cursor()
-        if self.get_user_project_pref(username, project, k):
-            sql = "UPDATE user_project_prefs SET value = ? WHERE username = ? AND project = ? AND key = ?"
-            c.execute(sql, (v, username, project, k))
-        else:
-            sql = "INSERT INTO user_project_prefs VALUES (?,?,?,?)"
-            c.execute(sql, (username, project, k, v))
-        self.conn.commit()
-        c.close()
 
     def get_doc(self, uid):
         """Get a doc or None."""
@@ -621,8 +441,7 @@ class YewStore(object):
             doc = self.index_doc(uid, name, location, kind)
             if content:
                 doc.put_content(content)
-        # make this the current document
-        self.put_user_pref("current_doc", uid)
+
         doc.toggle_encrypted()
         return self.get_doc(uid)
 

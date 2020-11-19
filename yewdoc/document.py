@@ -1,3 +1,5 @@
+import json
+from typing import Dict, Optional
 import os
 import codecs
 
@@ -125,14 +127,15 @@ class Document(object):
     def get_size(self):
         return os.path.getsize(self.get_path())
 
-    def serialize(self, no_uid=False):
+    def serialize(self, no_uid=False, no_content=False):
         """Serialize as json to send to server."""
         data = {}
         data["uid"] = self.uid
         data["parent"] = None
         data["title"] = self.name
         data["kind"] = self.kind
-        data["content"] = self.get_content()  # open(self.get_path()).read()
+        if not no_content:
+            data["content"] = self.get_content()  # open(self.get_path()).read()
         data["digest"] = self.digest
         return json.dumps(data)
 

@@ -41,9 +41,9 @@ class Remote(object):
 
     def __init__(self, store):
         self.store = store
-        self.token = u"Token %s" % self.store.get_user_pref("location.default.token")
+        self.token = u"Token %s" % self.store.prefs.get_user_pref("location.default.token")
         self.headers = {"Authorization": self.token, "Content-Type": "application/json"}
-        self.url = self.store.get_user_pref("location.default.url")
+        self.url = self.store.prefs.get_user_pref("location.default.url")
         self.verify = False
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
@@ -255,7 +255,7 @@ class Remote(object):
         pass
 
     def remote_configured(self):
-        token = self.store.get_user_pref("location.default.token")
+        token = self.store.prefs.get_user_pref("location.default.token")
         return True if token else False
 
     def push_doc(self, doc):

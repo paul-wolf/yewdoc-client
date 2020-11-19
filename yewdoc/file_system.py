@@ -2,7 +2,7 @@ import os
 from os.path import expanduser
 
 DEFAULT_USERNAME = "yewser"
-
+STORAGE_DIR = ".yew.d"
 
 def get_gnupg_exists(gnupg_dir=None):
     home = expanduser("~")
@@ -42,6 +42,10 @@ def get_username(username=None):
 
     return username if username else DEFAULT_USERNAME
 
+def get_storage_root(username=None):
+    home = expanduser("~")
+    return os.path.join(home, STORAGE_DIR)
+
 def get_user_directory(username=None):
     """Get the directory for the current local user.
 
@@ -51,7 +55,7 @@ def get_user_directory(username=None):
 
     """
     home = expanduser("~")
-    yew_dir = os.path.join(home, ".yew.d", username or get_username())
+    yew_dir = os.path.join(home, STORAGE_DIR, username or get_username())
     if not os.path.exists(yew_dir):
         os.makedirs(yew_dir)
     return yew_dir

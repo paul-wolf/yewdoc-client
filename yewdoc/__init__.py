@@ -11,7 +11,7 @@ editor and filesystem commands.
     :license: BSD, see LICENSE for more details.
 
 """
-
+from typing import Dict, Optional
 import codecs
 import datetime
 import difflib
@@ -26,6 +26,7 @@ import traceback
 import uuid
 from collections import namedtuple
 from os.path import expanduser
+import json
 
 import glom
 import click
@@ -46,6 +47,9 @@ from .store import YewStore
 from .document import Document
 from .document import DOC_KINDS
 from .settings import USER_PREFERENCES
+from .settings import Preferences
+from . import settings
+from . import file_system as fs
 from .tag import Tag, TagDoc
 from .utils import (
     bcolors,
@@ -123,7 +127,7 @@ def create(name, location, kind):
         sys.exit(0)
 
     # get the type of file
-    kind_tmp = yew.store.get_user_pref("default_doc_type")
+    kind_tmp = yew.store.prefs.get_user_pref("default_doc_type")
     if kind_tmp and not kind:
         kind = kind_tmp
 
@@ -216,7 +220,7 @@ def context(tag, clear):
 
     """
     tags = None
-    current_tag_context = yew.store.get_user_pref("tag_context")
+    current_tag_context = yew.store.prefs.get_user_pref("tag_context")    
     if tag:
         # lookup tag
         tags = yew.store.get_tags(tag, exact=True)
@@ -230,11 +234,11 @@ def context(tag, clear):
             )
             sys.exit(1)
         yew.store.put_user_pref("tag_context", tags[0].tagid)
-        current_tag_context = yew.store.get_user_pref("tag_context")
+        current_tag_context = yew.store.prefs.get_user_pref("tag_context")
 
     if clear:
-        yew.store.delete_user_pref("tag_context")
-        current_tag_context = yew.store.get_user_pref("tag_context")
+        yew.store.prefs.delete_user_pref("tag_context")
+        current_tag_context = yew.store.prefs.get_user_pref("tag_context")
 
     if current_tag_context:
         click.echo("current tag context: %s" % yew.store.get_tag(current_tag_context))
@@ -243,44 +247,22 @@ def context(tag, clear):
 @cli.command()
 @click.argument("name", required=False)
 @click.argument("value", required=False)
-def global_pref(name, value):
-    """Show or set global preferences.
-
-    No name for preference will show all preferences.
-    Providing a value will set to that value.
-
-    """
-    if not name:
-        prefs = yew.store.get_globals()
-        for pref in prefs:
-            click.echo("%s = %s" % (pref))
-    elif value:
-        # we are setting a value on the name
-        yew.store.put_global(name, value)
-    else:
-        click.echo("%s = %s" % (name, yew.store.get_global(name)))
-
-
-@cli.command()
-@click.argument("name", required=False)
-@click.argument("value", required=False)
 def user_pref(name, value):
-    """Show or set global preferences.
+    """Show or set user preferences.
 
     No name for a preference will show all preferences.
     Providing a value will set to that value.
 
     """
     print("user-pref, name={}, value={}".format(name, value))
+
     if name and not value:
-        click.echo("%s = %s" % (name, yew.store.get_user_pref(name)))
+        click.echo("%s = %s" % (name, prefs.get_user_pref(name)))
     elif name and value:
-        # set the user preference
-        yew.store.put_user_pref(name, value)
+        yew.store.prefs.put_user_pref(name, value)
     else:
-        print("asdfasf")
-        for k in YewStore.user_preferences:
-            v = yew.store.get_user_pref(k)
+        for k in settings.user_preferences:
+            v = yew.store.prefs.get_user_pref(k)
             click.echo("%s = %s" % (k, v))
 
 
@@ -406,7 +388,7 @@ def edit(name, list_docs, open_file, gpghome):
         else:
             sys.exit(0)
 
-    email = yew.store.get_user_pref("location.default.email")
+    email = yew.store.prefs.get_user_pref("location.default.email")
 
     encrypted = doc.check_encrypted()
     if encrypted:
@@ -422,8 +404,8 @@ def edit(name, list_docs, open_file, gpghome):
     doc.toggle_encrypted()
 
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref("current_doc", doc.uid)
-    yew.store.update_recent("yewser", doc)
+    yew.store.prefs.put_user_pref("current_doc", doc.uid)
+    yew.store.prefs.update_recent("yewser", doc)
 
 
 @cli.command()
@@ -445,13 +427,13 @@ def encrypt(name, list_docs, gpghome):
     if not doc:
         sys.exit(0)
 
-    email = yew.store.get_user_pref("location.default.email")
+    email = yew.store.prefs.get_user_pref("location.default.email")
 
     # try to encrypt in place
     encrypt_file(doc.get_path(), email, gpghome)
     doc.toggle_encrypted()
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref("current_doc", doc.uid)
+    yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)
 
 
@@ -474,13 +456,13 @@ def decrypt(name, list_docs, gpghome):
     if not doc:
         sys.exit(0)
 
-    email = yew.store.get_user_pref("location.default.email")
+    email = yew.store.prefs.get_user_pref("location.default.email")
 
     # try to decrypt in place
     decrypt_file(doc.get_path(), email, gpghome)
     doc.toggle_encrypted()
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.put_user_pref("current_doc", doc.uid)
+    yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)
 
 
@@ -537,7 +519,7 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
         tag_objects = yew.store.parse_tags(tags)
     else:
         # check for context
-        current_tag_context = yew.store.get_user_pref("tag_context")
+        current_tag_context = yew.store.prefs.get_user_pref("tag_context")
         if current_tag_context:
             tag_objects = [yew.store.get_tag(current_tag_context)]
             click.echo("Current tag context: %s" % str(tag_objects[0]))
@@ -551,7 +533,9 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
     else:
         docs.sort(key=lambda doc: doc.updated, reverse=True)
 
+    data = []
     for doc in docs:
+        data.append(doc.serialize(no_content=True))
         if info:
             if doc.is_link():
                 click.echo("ln ", nl=False)
@@ -584,6 +568,11 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
                 click.echo(" (E)", nl=False)
             else:
                 click.echo("    ", nl=False)
+                
+        path = os.path.join(fs.get_user_directory(), "index.json")
+        with open(path, "w") as f:
+            f.write(json.dumps(data, indent=4))
+            
         click.echo(doc.name, nl=False)
         if info:
             click.echo("   ", nl=False)
@@ -1180,15 +1169,15 @@ def _configure():
     """
     # the preferences need to be in the form:
     #  location.default.username
-    for pref in settings.user_preferences:
+    for pref in settings.USER_PREFERENCES:
         if "token" in pref or "password" in pref:
             continue
-        d = yew.store.get_user_pref(pref)
+        d = yew.store.prefs.get_user_pref(pref)
         p = pref.split(".")
         i = p[2]
         value = click.prompt("Enter %s" % i, default=d, type=str)
         click.echo(pref + "==" + value)
-        yew.store.put_user_pref(pref, value)
+        yew.store.prefs.put_user_pref(pref, value)
 
 
 @cli.command()
@@ -1203,12 +1192,12 @@ def _authenticate(username, password):
     r = yew.remote.authenticate_user(data={"username": username, "password": password})
     if r.status_code == 200:
         data = r.json()
-        yew.store.put_user_pref("location.default.username", username)
-        yew.store.put_user_pref("location.default.password", password)
-        yew.store.put_user_pref("location.default.email", data["email"])
-        yew.store.put_user_pref("location.default.first_name", data["first_name"])
-        yew.store.put_user_pref("location.default.last_name", data["last_name"])
-        yew.store.put_user_pref("location.default.token", data["token"])
+        yew.store.prefs.put_user_pref("location.default.username", username)
+        yew.store.prefs.put_user_pref("location.default.password", password)
+        yew.store.prefs.put_user_pref("location.default.email", data["email"])
+        yew.store.prefs.put_user_pref("location.default.first_name", data["first_name"])
+        yew.store.prefs.put_user_pref("location.default.last_name", data["last_name"])
+        yew.store.prefs.put_user_pref("location.default.token", data["token"])
         click.echo("You authenticated successfully. Try `yd sync`.")
     else:
         click.echo("ERORR: {}, {}".format(r.status_code, r.content))
@@ -1227,12 +1216,12 @@ def authenticate():
     """
     username = click.prompt(
         "Enter username ",
-        default=yew.store.get_user_pref("location.default.username"),
+        default=yew.store.prefs.get_user_pref("location.default.username"),
         type=str,
     )
     password = click.prompt("Enter password ", hide_input=True, type=str)
 
-    current_username = yew.store.get_user_pref("location.default.username")
+    current_username = yew.store.prefs.get_user_pref("location.default.username")
     if current_username and not current_username == username:
         if click.confirm(
             "You entered a username that does not match the current system username. Continue?"
@@ -1255,10 +1244,10 @@ def register():
         click.echo("Could not connect")
         sys.exit(1)
 
-    username = yew.store.get_user_pref("location.default.username")
-    email = yew.store.get_user_pref("location.default.email")
-    first_name = yew.store.get_user_pref("location.default.first_name")
-    last_name = yew.store.get_user_pref("location.default.last_name")
+    username = yew.store.prefs.get_user_pref("location.default.username")
+    email = yew.store.prefs.get_user_pref("location.default.email")
+    first_name = yew.store.prefs.get_user_pref("location.default.first_name")
+    last_name = yew.store.prefs.get_user_pref("location.default.last_name")
     p = SG(r"[\w\d]{12}").render()
     password = click.prompt(
         "Enter a new password or accept the default ", default=p, type=str
@@ -1274,7 +1263,7 @@ def register():
     )
     if r.status_code == 200:
         data = json.loads(r.content)
-        yew.store.put_user_pref("location.default.token", data["token"])
+        yew.store.prefs.put_user_pref("location.default.token", data["token"])
     else:
         click.echo("Something went wrong")
         click.echo("status code: %s" % r.status_code)
@@ -1336,7 +1325,7 @@ def read(name, list_docs, location, kind, create, append):
 
     # get the type of file
     # we'll ignore this if appending
-    kind_tmp = yew.store.get_user_pref("default_doc_type")
+    kind_tmp = yew.store.prefs.get_user_pref("default_doc_type")
     if kind_tmp and not kind:
         kind = kind_tmp
     else:
@@ -1368,7 +1357,7 @@ def info():
     data = {yew.store.username: {}}
     
     for k in USER_PREFERENCES:
-        v = yew.store.get_user_pref(k)
+        v = yew.store.prefs.get_user_pref(k)
         data = glom.assign(data, f"{yew.store.username}.{k}", v, missing=dict) 
         if "password" not in k:
             if k == "location.default.email":
