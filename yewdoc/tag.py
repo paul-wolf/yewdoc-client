@@ -1,6 +1,3 @@
-
-
-
 class Tag(object):
     def __init__(self, store, location, tagid, name):
         self.store = store
@@ -20,6 +17,3 @@ class TagDoc(object):
         self.store = store
         self.tagid = tagid
         self.uid = uid
-
-
-

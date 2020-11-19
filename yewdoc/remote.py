@@ -41,7 +41,9 @@ class Remote(object):
 
     def __init__(self, store):
         self.store = store
-        self.token = u"Token %s" % self.store.prefs.get_user_pref("location.default.token")
+        self.token = u"Token %s" % self.store.prefs.get_user_pref(
+            "location.default.token"
+        )
         self.headers = {"Authorization": self.token, "Content-Type": "application/json"}
         self.url = self.store.prefs.get_user_pref("location.default.url")
         self.verify = False

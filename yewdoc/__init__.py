@@ -109,7 +109,6 @@ def status():
 
 @cli.command()
 @click.argument("name", required=False)
-@click.option("--location", help="Location endpoint alias for document", required=False)
 @click.option(
     "--kind",
     "-k",
@@ -117,7 +116,7 @@ def status():
     help="Type of document, txt, md, rst, json, etc.",
     required=False,
 )
-def create(name, location, kind):
+def create(name, kind):
     """Create a new document."""
     if not name:
         docs = yew.store.search_names("%s")
@@ -131,10 +130,7 @@ def create(name, location, kind):
     if kind_tmp and not kind:
         kind = kind_tmp
 
-    if not location:
-        location = "default"
-
-    doc = yew.store.create_document(name, location, kind)
+    doc = yew.store.create_document(name, kind)
 
     click.echo("created document: %s" % doc.uid)
     click.edit(require_save=True, filename=doc.path)
@@ -220,7 +216,7 @@ def context(tag, clear):
 
     """
     tags = None
-    current_tag_context = yew.store.prefs.get_user_pref("tag_context")    
+    current_tag_context = yew.store.prefs.get_user_pref("tag_context")
     if tag:
         # lookup tag
         tags = yew.store.get_tags(tag, exact=True)
@@ -323,7 +319,7 @@ def get_document_selection(name, list_docs, multiple=False):
     """
 
     if name and is_uuid(name):
-        return yew.store.get(name)
+        return yew.store.get_doc(name)
 
     if name and is_short_uuid(name):
         return yew.store.get_short(name)
@@ -384,7 +380,7 @@ def edit(name, list_docs, open_file, gpghome):
     # if doc is null, we didn't find one, ask if we should create:
     if not doc:
         if click.confirm("Couldn't find that document, shall we create it?"):
-            doc = yew.store.create_document(name, location="default", kind="md")
+            doc = yew.store.create_document(name, kind="md")
         else:
             sys.exit(0)
 
@@ -401,11 +397,10 @@ def edit(name, list_docs, open_file, gpghome):
 
     if encrypted:
         encrypt_file(doc.get_path(), email, gpghome)
-    doc.toggle_encrypted()
 
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
-    yew.store.prefs.put_user_pref("current_doc", doc.uid)
-    yew.store.prefs.update_recent("yewser", doc)
+    # yew.store.prefs.put_user_pref("current_doc", doc.uid)
+    # yew.store.prefs.update_recent(doc)
 
 
 @cli.command()
@@ -431,7 +426,7 @@ def encrypt(name, list_docs, gpghome):
 
     # try to encrypt in place
     encrypt_file(doc.get_path(), email, gpghome)
-    doc.toggle_encrypted()
+
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)
@@ -460,7 +455,7 @@ def decrypt(name, list_docs, gpghome):
 
     # try to decrypt in place
     decrypt_file(doc.get_path(), email, gpghome)
-    doc.toggle_encrypted()
+
     yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)
@@ -535,7 +530,7 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
 
     data = []
     for doc in docs:
-        data.append(doc.serialize(no_content=True))
+        # data.append(doc.serialize(no_content=True))
         if info:
             if doc.is_link():
                 click.echo("ln ", nl=False)
@@ -568,11 +563,11 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
                 click.echo(" (E)", nl=False)
             else:
                 click.echo("    ", nl=False)
-                
-        path = os.path.join(fs.get_user_directory(), "index.json")
-        with open(path, "w") as f:
-            f.write(json.dumps(data, indent=4))
-            
+
+        # path = os.path.join(fs.get_user_directory(), "index.json")
+        # with open(path, "w") as f:
+        #     f.write(json.dumps(data, indent=4))
+
         click.echo(doc.name, nl=False)
         if info:
             click.echo("   ", nl=False)
@@ -820,7 +815,17 @@ def describe(name, list_docs, remote, diff):
         )
         click.echo(s)
 
+@cli.command()
+@click.option("--prune", "-p", is_flag=True, required=False)
+def verify(prune=False):
+    """Check docs exist."""
 
+    missing = yew.store.verify_docs(prune=prune)
+    if prune and missing:
+        print("Removed missing")
+    if not missing:
+        print("No missing docs")
+        
 @cli.command()
 @click.argument("name1", required=True)
 @click.argument("name2", required=True)
@@ -1055,7 +1060,7 @@ def convert(name, destination_format, destination_file, list_docs, formats):
     click.echo(destination_format)
 
     if destination_format in ["docx", "pdf", "odt"]:
-        destination_file = u"{}.{}".format(slugify(doc.name), destination_format)
+        destination_file = "{}.{}".format(slugify(doc.name), destination_format)
 
     if destination_file:
         dest = pypandoc.convert(
@@ -1124,12 +1129,10 @@ def take(path, kind, force, symlink):
                 sys.exit(0)
 
     if symlink:
-        doc = yew.store.create_document(
-            title, "default", kind, symlink_source_path=path
-        )
+        doc = yew.store.create_document(title, kind, symlink_source_path=path)
         click.echo("Symlinked: %s" % doc.uid)
     else:
-        doc = yew.store.create_document(title, "default", kind)
+        doc = yew.store.create_document(title, kind)
         doc.put_content(content)
     yew.remote.push_doc(doc)
 
@@ -1335,7 +1338,7 @@ def read(name, list_docs, location, kind, create, append):
         location = "default"
 
     if create or not append:
-        doc = yew.store.create_document(name, location, kind, content=content)
+        doc = yew.store.create_document(name, kind, content=content)
     else:
         s = doc.get_content() + content
         doc.put_content(s)
@@ -1351,20 +1354,19 @@ def info():
     print(f"YEWDOC_USER env: {os.getenv('YEWDOC_USER')}")
     print(f"username: {yew.store.username}")
     print(f"doc store: {yew.store.yew_dir}")
-    counts = yew.store.get_counts()
-    print(f"documents={counts['documents']}, tags={counts['tags']}")
+
+    print(f"documents={yew.store.get_counts()}")
     email = None
     data = {yew.store.username: {}}
-    
+
     for k in USER_PREFERENCES:
         v = yew.store.prefs.get_user_pref(k)
-        data = glom.assign(data, f"{yew.store.username}.{k}", v, missing=dict) 
+        data = glom.assign(data, f"{yew.store.username}.{k}", v, missing=dict)
         if "password" not in k:
             if k == "location.default.email":
                 email = v
             click.echo("%s = %s" % (k, v))
     print(json.dumps(data, indent=4))
-            
 
     try:
         pypandoc.get_pandoc_formats()

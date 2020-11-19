@@ -24,23 +24,37 @@ from . import file_system as fs
 
 DOC_KINDS = ["md", "txt", "rst", "json"]
 
+
+def deserialize(store, data: Dict):
+    """Create a document from a dict."""
+    return Document(store, data["uid"], data["name"], data["location"], data["kind"])
+
+
 class Document(object):
     """Describes a document."""
 
-    def __init__(self, store, uid, name, location, kind, encrypt, ipfs_hash):
+    def __init__(
+        self, store: "YewStore", uid: str, name: str, kind: str, encrypt: int = 0
+    ):
         self.store = store
         self.uid = uid
         self.name = name
-        self.location = location
         self.kind = kind
-        self.path = os.path.join(
-            store.yew_dir, store.location, uid, f"doc.{kind}"
-        )
-        # TODO: lazy load
-        self.digest = self.get_digest()
-        self.directory_path = os.path.join(store.yew_dir, store.location, uid)
         self.encrypt = encrypt
 
+    @property
+    def path(self):
+        return os.path.join(
+            self.store.yew_dir, self.store.location, self.uid, f"doc.{self.kind}"
+        )
+
+    @property
+    def directory_path(self):
+        return os.path.join(self.store.yew_dir, self.store.location, self.uid)
+
+    @property
+    def digest(self):
+        return self.get_digest()
 
     def toggle_encrypted(self):
         """
@@ -76,7 +90,7 @@ class Document(object):
         return "doc"
 
     def get_filename(self):
-        return u"%s.%s" % (self.get_basename(), self.kind)
+        return "%s.%s" % (self.get_basename(), self.kind)
 
     def get_path(self):
         return os.path.join(
@@ -85,14 +99,16 @@ class Document(object):
             self.uid,
             self.get_filename(),
         )
+    
+    @property
+    def path(self):
+        return self.get_path()
 
     def is_link(self):
         return os.path.islink(self.get_path())
 
     def get_media_path(self):
-        path = os.path.join(
-            self.store.yew_dir, self.store.location, self.uid, "media"
-        )
+        path = os.path.join(self.store.yew_dir, self.store.location, self.uid, "media")
         if not os.path.exists(path):
             os.makedirs(path)
             # os.chmod(path, 0x776)
@@ -108,14 +124,13 @@ class Document(object):
         click.echo("uid      : %s" % self.uid)
         click.echo("link     : %s" % self.is_link())
         click.echo("title    : %s" % self.name)
-        click.echo("location : %s" % self.location)
+        click.echo("location : %s" % self.store.location)
         click.echo("kind     : %s" % self.kind)
         click.echo("size     : %s" % self.get_size())
         click.echo("digest   : %s" % self.digest)
         click.echo("path     : %s" % self.path)
         click.echo("updated  : %s" % modification_date(self.get_path()))
         click.echo("encrypt  : %s" % self.is_encrypted())
-
 
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
@@ -131,13 +146,12 @@ class Document(object):
         """Serialize as json to send to server."""
         data = {}
         data["uid"] = self.uid
-        data["parent"] = None
         data["title"] = self.name
         data["kind"] = self.kind
         if not no_content:
             data["content"] = self.get_content()  # open(self.get_path()).read()
         data["digest"] = self.digest
-        return json.dumps(data)
+        return data
 
     def get_content(self):
         """Get the content."""
@@ -154,5 +168,5 @@ class Document(object):
     def __str__(self):
         return self.name
 
-
-
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.name}"
