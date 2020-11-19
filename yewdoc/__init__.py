@@ -325,7 +325,7 @@ def get_document_selection(name, list_docs, multiple=False):
         return yew.store.get_short(name)
 
     if not name and not list_docs:
-        docs = yew.store.get_recent("yewser")
+        docs = yew.store.get_recent(yew.store.username)
         return document_menu(docs, multiple)
     elif list_docs:
         docs = yew.store.get_docs()
@@ -792,6 +792,7 @@ def describe(name, list_docs, remote, diff):
     """Show document details."""
 
     doc = get_document_selection(name, list_docs)
+
     if doc:
         doc.dump()
     status = None
@@ -815,6 +816,7 @@ def describe(name, list_docs, remote, diff):
         )
         click.echo(s)
 
+
 @cli.command()
 @click.option("--prune", "-p", is_flag=True, required=False)
 def verify(prune=False):
@@ -825,7 +827,8 @@ def verify(prune=False):
         print("Removed missing")
     if not missing:
         print("No missing docs")
-        
+
+
 @cli.command()
 @click.argument("name1", required=True)
 @click.argument("name2", required=True)

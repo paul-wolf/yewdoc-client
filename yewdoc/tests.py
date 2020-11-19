@@ -40,7 +40,7 @@ from yewdoc import (
 )
 
 USER_PREFS = {
-    "yewser": {
+    "test_user": {
         "location": {
             "default": {
                 "url": "https://doc.yew.io",
@@ -60,20 +60,23 @@ class MockRemote(object):
     def authenticate_user(self, data):
         return MockResponse(
             {
-                u"username": "paul",
-                u"first_name": u"Paul",
-                u"last_name": u"Wolf",
-                u"email": u"paul.wolf@blah.com",
-                u"token": u"b9512423d9ffa2312bdcb3d5c60f7db26d5b08a1",
+                "username": "paul",
+                "first_name": "Paul",
+                "last_name": "Wolf",
+                "email": "paul.wolf@blah.com",
+                "token": "b9512423d9ffa2312bdcb3d5c60f7db26d5b08a1",
             },
             200,
         )
 
+
 class MockPreferences:
     def put_user_pref(n, v):
         pass
+
     def get_user_pref(n):
         return "blah"
+
 
 class MockStore(object):
     def put_user_pref(self, s, d):
@@ -88,6 +91,7 @@ class MockYew(object):
     remote = MockRemote()
     store = MockStore()
 
+
 class MockResponse:
     def __init__(self, json_data, status_code):
         self.json_data = json_data
@@ -100,8 +104,7 @@ class MockResponse:
 class TestYewdocsClient(unittest.TestCase):
     def setUp(self):
         self.username = "test_user"
-        test_path = f"{os.path.expanduser('~')}/{self.username}"
-
+        test_path = f"{os.path.expanduser('~')}/.yew.d/{self.username}"
         # we delete entire environment for each test
         # you really would not want to make a mistake here
         if os.path.exists(test_path):
@@ -125,9 +128,11 @@ class TestYewdocsClient(unittest.TestCase):
         assert result.exit_code == 0
 
     def test_describe_document(self):
+
         self.create_document("test describe document")
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "describe", "my test doc"])
+        result = runner.invoke(cli, ["--user=test_user", "describe", "test describe document"])
+
         assert result.exit_code == 0
         assert "location" in result.output
         assert "kind" in result.output
@@ -171,7 +176,7 @@ class TestYewdocsClient(unittest.TestCase):
         result = runner.invoke(
             cli, ["--user=test_user", "kind", "test kind doc", "txt"]
         )
-        print(result.output)
+
         assert result.exit_code == 0
 
     def test_rename_document(self):
@@ -180,7 +185,7 @@ class TestYewdocsClient(unittest.TestCase):
         result = runner.invoke(
             cli, ["--user=test_user", "rename", "my test doc", "my new test doc"]
         )
-        print(result.output)
+
         # assert result.exit_code == 0
 
     def test_convert_document(self):
@@ -189,7 +194,7 @@ class TestYewdocsClient(unittest.TestCase):
         result = runner.invoke(
             cli, ["--user=test_user", "convert", "test convert", "html"]
         )
-        print(result.output)
+
         assert result.exit_code == 0
         assert "<p>dummy</p>" in result.output
 
@@ -211,7 +216,7 @@ class TestYewdocsClient(unittest.TestCase):
             result = runner.invoke(
                 cli, ["--user=test_user", "take", "hello.txt", "--force"]
             )
-            print(result.output)
+
             result = runner.invoke(cli, ["--user=test_user", "ls", "-l"])
             assert "hello" in result.output
             assert result.exit_code == 0
@@ -219,22 +224,23 @@ class TestYewdocsClient(unittest.TestCase):
     def test_ls(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["--user=test_user", "ls", "--info"])
-        print(result.output)
+
         assert result.exit_code == 0
         # assert result.output == 'Hello Peter!\n'
 
     def test_status(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["--user=test_user", "status"])
-        print(result.output)
+
         assert result.exit_code == 0
 
     def test_user_pref(self):
         runner = CliRunner()
         runner.invoke(cli, ["--user=test_user", "user-pref"])
         #  assert result.exit_code == 0
-        # print(result.output)
 
+
+    @unittest.skip("Not ready for this to work yet")
     def test_authenticate(self):
         yewdoc.yew = MockYew()
         status_code = yewdoc._authenticate("blah", "blah")

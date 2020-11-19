@@ -162,12 +162,10 @@ class YewStore(object):
 
     def search_names(self, name_frag, exact=False, encrypted=False):
         """Get docs with LIKE unless matching exactly."""
-
         matching_docs = filter(lambda doc: match(name_frag, doc["title"]), self.index)
         docs = list()
         for data in matching_docs:
             docs.append(doc_from_data(self, data))
-
         return docs
 
     def get_doc(self, uid):
@@ -198,10 +196,12 @@ class YewStore(object):
                 print(f"Does not exist: {doc.uid} {doc.name}")
                 missing_uids.append(doc.uid)
         if prune:
-            self.index = list(filter(lambda d: d["uid"] not in missing_uids, self.index))
+            self.index = list(
+                filter(lambda d: d["uid"] not in missing_uids, self.index)
+            )
             self.write_index()
         return missing_uids
-    
+
     def index_doc(self, uid, name, kind) -> Document:
         """Enter document into db for the first time.
 

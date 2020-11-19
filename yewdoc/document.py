@@ -99,7 +99,7 @@ class Document(object):
             self.uid,
             self.get_filename(),
         )
-    
+
     @property
     def path(self):
         return self.get_path()
