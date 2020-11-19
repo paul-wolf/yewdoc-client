@@ -53,35 +53,12 @@ class YewStore(object):
 
     """
 
-    yewdb_path = None
-    conn = None
-    username = None
-
-    global_preferences = ["username", "offline"]
-
-    # mainly preferences required to connect to server
-    user_preferences = [
-        "location.default.url",
-        "location.default.email",
-        "location.default.username",
-        "location.default.password",
-        "location.default.first_name",
-        "location.default.last_name",
-        "location.default.token",
-        # "default_doc_type",
-        # "current_doc",
-    ]
-
-    doc_kinds = ["md", "txt", "rst", "json"]
-
-
     def __init__(self, username=None):
         """Make sure storage is setup."""
 
         self.yew_dir = fs.get_user_directory(fs.get_username(username))
         self.yewdb_path = os.path.join(self.yew_dir, "yew.db")
         self.conn = self.make_db(self.yewdb_path)
-        # TODO: change this to be the same as get_user_directory()
         self.username = fs.get_username(username)
         self.offline = self.get_global("offline", False)
         self.location = "default"

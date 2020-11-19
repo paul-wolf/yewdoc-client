@@ -27,6 +27,7 @@ import uuid
 from collections import namedtuple
 from os.path import expanduser
 
+import glom
 import click
 import dateutil
 import dateutil.parser
@@ -43,6 +44,8 @@ from .crypt import decrypt_file, encrypt_file, list_keys
 from .remote import OfflineException, Remote, RemoteException
 from .store import YewStore
 from .document import Document
+from .document import DOC_KINDS
+from .settings import USER_PREFERENCES
 from .tag import Tag, TagDoc
 from .utils import (
     bcolors,
@@ -915,7 +918,7 @@ def kind(name, kind, list_docs):
     if not kind:
         click.echo(doc)
         click.echo("Current document kind: '%s'" % doc.kind)
-        for i, d in enumerate(yew.store.doc_kinds):
+        for i, d in enumerate(DOC_KINDS):
             click.echo("%s" % (d))
         kind = click.prompt("Select the new document kind ", type=str)
     click.echo("Changing document kind to: %s" % kind)
@@ -1177,7 +1180,7 @@ def _configure():
     """
     # the preferences need to be in the form:
     #  location.default.username
-    for pref in yew.store.user_preferences:
+    for pref in settings.user_preferences:
         if "token" in pref or "password" in pref:
             continue
         d = yew.store.get_user_pref(pref)
@@ -1362,15 +1365,18 @@ def info():
     counts = yew.store.get_counts()
     print(f"documents={counts['documents']}, tags={counts['tags']}")
     email = None
-    for k in YewStore.user_preferences:
+    data = {yew.store.username: {}}
+    
+    for k in USER_PREFERENCES:
+        v = yew.store.get_user_pref(k)
+        data = glom.assign(data, f"{yew.store.username}.{k}", v, missing=dict) 
         if "password" not in k:
-            v = yew.store.get_user_pref(k)
             if k == "location.default.email":
                 email = v
             click.echo("%s = %s" % (k, v))
-    prefs = yew.store.get_globals()
-    for pref in prefs:
-        click.echo("%s = %s" % (pref))
+    print(json.dumps(data, indent=4))
+            
+
     try:
         pypandoc.get_pandoc_formats()
         print("pandoc installed")

@@ -20,6 +20,8 @@ from .utils import (
 
 from . import file_system as fs
 
+DOC_KINDS = ["md", "txt", "rst", "json"]
+
 class Document(object):
     """Describes a document."""
 

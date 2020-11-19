@@ -1,2 +1,2 @@
 #!/bin/sh
-python yewdoc.py "$@"
+python yewdoc "$@"

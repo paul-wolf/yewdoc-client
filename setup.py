@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="yd",
-    version="0.1.0",
+    version="0.2.0",
     py_modules=["yewdoc"],
     install_requires=[
         "click",
@@ -17,6 +17,7 @@ setup(
         "tzlocal",
         "humanize",
         "python-gnupg",
+        "glom",
     ],
     entry_points="""
         [console_scripts]
