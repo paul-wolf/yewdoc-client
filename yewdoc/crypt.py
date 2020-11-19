@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
+import argparse
+import getpass
+import importlib
 import os
 import sys
-import gnupg
-from pprint import pprint
-import argparse
-import importlib
-import getpass
 from collections import namedtuple
+from pprint import pprint
+
+import gnupg
 
 
 def gpgh(gpg_dir):

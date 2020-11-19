@@ -2,43 +2,16 @@
 import os
 import shutil
 import unittest
-import mock
+
 import click
+import mock
 from click.testing import CliRunner
 
-from yewdoc import (
-    YewStore,
-    cli,
-    api,
-    attach,
-    browse,
-    configure,
-    context,
-    convert,
-    create,
-    delete,
-    describe,
-    diff,
-    edit,
-    find,
-    global_pref,
-    head,
-    ls,
-    ping,
-    push,
-    read,
-    register,
-    rename,
-    show,
-    status,
-    sync,
-    tag,
-    tail,
-    take,
-    user_pref,
-)
-
 import yewdoc
+from yewdoc import (YewStore, api, attach, browse, cli, configure, context,
+                    convert, create, delete, describe, diff, edit, find,
+                    global_pref, head, ls, ping, push, read, register, rename,
+                    show, status, sync, tag, tail, take, user_pref)
 
 
 class MockRemote(object):

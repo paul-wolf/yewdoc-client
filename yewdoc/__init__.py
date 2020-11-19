@@ -12,51 +12,40 @@ editor and filesystem commands.
 
 """
 from __future__ import print_function
-import os
-import sys
-import uuid
-import traceback
-from os.path import expanduser
-import click
-import sqlite3
-import requests
-from requests.exceptions import ConnectionError
-from strgen import StringGenerator as SG
-import json
-import shutil
-import hashlib
+
 import codecs
+import datetime
+import difflib
+import hashlib
+import json
+import os
+import re
+import shutil
+import sqlite3
+import sys
+import traceback
+import uuid
+from collections import namedtuple
+from os.path import expanduser
+
+import click
 import dateutil
 import dateutil.parser
-import datetime
-import pytz
-import tzlocal
-import markdown
-import difflib
-import re
 import humanize as h
-from collections import namedtuple
-
+import markdown
+import pytz
+import requests
+import tzlocal
 from jinja2 import Template
+from requests.exceptions import ConnectionError
+from strgen import StringGenerator as SG
 
-from .utils import (
-    bcolors,
-    is_binary_file,
-    is_binary_string,
-    slugify,
-    err,
-    is_uuid,
-    is_short_uuid,
-    get_short_uid,
-    delete_directory,
-    get_sha_digest,
-    to_utc,
-    modification_date,
-)
-
-from .remote import Remote, RemoteException, OfflineException
-from .store import Tag, TagDoc, Document, YewStore
-from .crypt import encrypt_file, decrypt_file, list_keys
+from .crypt import decrypt_file, encrypt_file, list_keys
+from .remote import OfflineException, Remote, RemoteException
+from .store import Document, Tag, TagDoc, YewStore
+from .utils import (bcolors, delete_directory, err, get_sha_digest,
+                    get_short_uid, is_binary_file, is_binary_string,
+                    is_short_uuid, is_uuid, modification_date, slugify, to_utc)
 
 __version__ = "0.1.0"
 __author__ = "Paul Wolf"
@@ -433,9 +422,7 @@ def edit(name, list_docs, open_file, gpghome):
     help="Your GnuGPG home directory, defaults to .gnupg",
 )
 def encrypt(name, list_docs, gpghome):
-    """Encrypt a document.
-
-    """
+    """Encrypt a document."""
 
     doc = get_document_selection(name, list_docs)
 
@@ -464,9 +451,7 @@ def encrypt(name, list_docs, gpghome):
     help="Your GnuGPG home directory, defaults to ",
 )
 def decrypt(name, list_docs, gpghome):
-    """Decrypt a document.
-
-    """
+    """Decrypt a document."""
 
     doc = get_document_selection(name, list_docs)
 
@@ -522,7 +507,8 @@ def find(spec, string_only, insensitive):
 @click.option("--humanize", "-h", is_flag=True, required=False)
 @click.option("--encrypted", "-e", is_flag=True, required=False)
 @click.option("--tags", "-t", required=False)
-def ls(name, info, remote, humanize, encrypted, tags):
+
+def ls(name, info, remote, humanize, encrypted, tags, sort):
     """List documents."""
 
     if remote:
@@ -544,6 +530,9 @@ def ls(name, info, remote, humanize, encrypted, tags):
         docs = yew.store.search_names(name, encrypted=encrypted)
     else:
         docs = yew.store.get_docs(tag_objects=tag_objects, encrypted=encrypted)
+
+    
+        
     for doc in docs:
         if info:
             if doc.is_link():

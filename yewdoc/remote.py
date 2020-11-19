@@ -1,26 +1,27 @@
 # -*- coding: utf-8 -*-
-import os
-import sys
-import uuid
-import traceback
-from os.path import expanduser
-import click
-import sqlite3
-import requests
-from requests.exceptions import ConnectionError
-from strgen import StringGenerator as SG
-import json
-import shutil
-import hashlib
 import codecs
+import datetime
+import difflib
+import hashlib
+import json
+import os
+import re
+import shutil
+import sqlite3
+import sys
+import traceback
+import uuid
+from os.path import expanduser
+
+import click
 import dateutil
 import dateutil.parser
-import datetime
-import pytz
-import tzlocal
 import markdown
-import difflib
-import re
+import pytz
+import requests
+import tzlocal
+from requests.exceptions import ConnectionError
+from strgen import StringGenerator as SG
 
 
 class RemoteException(Exception):
@@ -311,10 +312,7 @@ class Remote(object):
         pass
 
     def push_tags(self, tag_data):
-        """Post tags to server.
-
-
-        """
+        """Post tags to server."""
         if self.offline:
             raise OfflineException()
 
@@ -324,10 +322,7 @@ class Remote(object):
         )
 
     def push_tag_associations(self):
-        """Post tag associations to server.
-
-
-        """
+        """Post tag associations to server."""
         if self.offline:
             raise OfflineException()
 
@@ -345,9 +340,7 @@ class Remote(object):
         return r
 
     def pull_tags(self):
-        """Pull tags from server.
-
-        """
+        """Pull tags from server."""
         if self.offline:
             raise OfflineException()
 
@@ -356,9 +349,7 @@ class Remote(object):
         return json.loads(r.content)
 
     def pull_tag_associations(self):
-        """Pull tags from server.
-
-        """
+        """Pull tags from server."""
         if self.offline:
             raise OfflineException()
 

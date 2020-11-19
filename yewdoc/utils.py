@@ -1,20 +1,21 @@
-import os
-import sys
-import uuid
-import traceback
-import json
-import shutil
-import hashlib
 import codecs
+import datetime
+import difflib
+import hashlib
+import json
+import os
+import re
+import shutil
+import sys
+import traceback
+import uuid
+
 import dateutil
 import dateutil.parser
-import datetime
+import humanize as h
+import markdown
 import pytz
 import tzlocal
-import markdown
-import difflib
-import re
-import humanize as h
 
 
 class bcolors:

@@ -1,46 +1,36 @@
 # -*- coding: utf-8 -*-
-import os
-import sys
-import uuid
-import traceback
-from os.path import expanduser
-import click
-import sqlite3
-import requests
-from requests.exceptions import ConnectionError
-from strgen import StringGenerator as SG
-import json
-import shutil
-import hashlib
 import codecs
+import datetime
+import difflib
+import hashlib
+import json
+import os
+import re
+import shutil
+import sqlite3
+import sys
+import traceback
+import uuid
+from os.path import expanduser
+
+import click
 import dateutil
 import dateutil.parser
-import datetime
-import pytz
-import tzlocal
 import markdown
-import difflib
-import re
+import pytz
+import requests
+import tzlocal
+from requests.exceptions import ConnectionError
+from strgen import StringGenerator as SG
 
 try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
 
-from .utils import (
-    bcolors,
-    is_binary_file,
-    is_binary_string,
-    slugify,
-    err,
-    is_uuid,
-    is_short_uuid,
-    get_short_uid,
-    delete_directory,
-    get_sha_digest,
-    to_utc,
-    modification_date,
-)
+from .utils import (bcolors, delete_directory, err, get_sha_digest,
+                    get_short_uid, is_binary_file, is_binary_string,
+                    is_short_uuid, is_uuid, modification_date, slugify, to_utc)
 
 
 class Tag(object):
@@ -419,8 +409,7 @@ class YewStore(object):
         return tag
 
     def sync_tag(self, tagid, name):
-        """Import a tag if not existing and return tag object.
-        """
+        """Import a tag if not existing and return tag object."""
 
         c = self.conn.cursor()
         s = "INSERT OR IGNORE INTO tag VALUES (?,?,?);"
@@ -436,8 +425,7 @@ class YewStore(object):
         return tag
 
     def get_tag(self, tagid):
-        """Get a tag by id.
-        """
+        """Get a tag by id."""
         tag = None
         c = self.conn.cursor()
         s = "SELECT * FROM tag WHERE location = ? AND tagid = ?"
@@ -471,9 +459,7 @@ class YewStore(object):
         return tags
 
     def get_tag_associations(self):
-        """Get tag associations.
-
-        """
+        """Get tag associations."""
         c = self.conn.cursor()
         s = "SELECT * FROM tagdoc"
         c.execute(s)
