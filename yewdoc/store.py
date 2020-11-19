@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from typing import List
 import codecs
 import datetime
 import difflib
@@ -23,14 +24,22 @@ import tzlocal
 from requests.exceptions import ConnectionError
 from strgen import StringGenerator as SG
 
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import configparser
 
-from .utils import (bcolors, delete_directory, err, get_sha_digest,
-                    get_short_uid, is_binary_file, is_binary_string,
-                    is_short_uuid, is_uuid, modification_date, slugify, to_utc)
+from .utils import (
+    bcolors,
+    delete_directory,
+    err,
+    get_sha_digest,
+    get_short_uid,
+    is_binary_file,
+    is_binary_string,
+    is_short_uuid,
+    is_uuid,
+    modification_date,
+    slugify,
+    to_utc,
+)
 
 
 class Tag(object):
@@ -149,6 +158,10 @@ class Document(object):
 
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
+
+    @property
+    def updated(self):
+        return self.get_last_updated_utc()
 
     def get_size(self):
         return os.path.getsize(self.get_path())
@@ -725,7 +738,7 @@ class YewStore(object):
         c.close()
         return docs
 
-    def get_docs(self, tag_objects=[], encrypted=False):
+    def get_docs(self, tag_objects=[], encrypted=False) -> List[Document]:
         """Get all docs using the index.
 
         Does not get remote.

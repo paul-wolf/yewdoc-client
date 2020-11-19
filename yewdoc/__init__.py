@@ -43,9 +43,20 @@ from strgen import StringGenerator as SG
 from .crypt import decrypt_file, encrypt_file, list_keys
 from .remote import OfflineException, Remote, RemoteException
 from .store import Document, Tag, TagDoc, YewStore
-from .utils import (bcolors, delete_directory, err, get_sha_digest,
-                    get_short_uid, is_binary_file, is_binary_string,
-                    is_short_uuid, is_uuid, modification_date, slugify, to_utc)
+from .utils import (
+    bcolors,
+    delete_directory,
+    err,
+    get_sha_digest,
+    get_short_uid,
+    is_binary_file,
+    is_binary_string,
+    is_short_uuid,
+    is_uuid,
+    modification_date,
+    slugify,
+    to_utc,
+)
 
 __version__ = "0.1.0"
 __author__ = "Paul Wolf"
@@ -507,7 +518,7 @@ def find(spec, string_only, insensitive):
 @click.option("--humanize", "-h", is_flag=True, required=False)
 @click.option("--encrypted", "-e", is_flag=True, required=False)
 @click.option("--tags", "-t", required=False)
-
+@click.option("--sort", "-s", required=False)
 def ls(name, info, remote, humanize, encrypted, tags, sort):
     """List documents."""
 
@@ -531,8 +542,11 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
     else:
         docs = yew.store.get_docs(tag_objects=tag_objects, encrypted=encrypted)
 
-    
-        
+    if sort:
+        pass
+    else:
+        docs.sort(key=lambda doc: doc.updated, reverse=True)
+
     for doc in docs:
         if info:
             if doc.is_link():

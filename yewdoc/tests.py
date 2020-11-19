@@ -8,10 +8,37 @@ import mock
 from click.testing import CliRunner
 
 import yewdoc
-from yewdoc import (YewStore, api, attach, browse, cli, configure, context,
-                    convert, create, delete, describe, diff, edit, find,
-                    global_pref, head, ls, ping, push, read, register, rename,
-                    show, status, sync, tag, tail, take, user_pref)
+from yewdoc import (
+    YewStore,
+    api,
+    attach,
+    browse,
+    cli,
+    configure,
+    context,
+    convert,
+    create,
+    delete,
+    describe,
+    diff,
+    edit,
+    find,
+    global_pref,
+    head,
+    ls,
+    ping,
+    push,
+    read,
+    register,
+    rename,
+    show,
+    status,
+    sync,
+    tag,
+    tail,
+    take,
+    user_pref,
+)
 
 
 class MockRemote(object):
@@ -83,6 +110,23 @@ class TestYewdocsClient(unittest.TestCase):
         assert u"kind" in result.output
         assert u"size" in result.output
 
+    def test_ls_document(self):
+        self.create_document("first doc", content="dummy")
+        self.create_document("second doc", content="dummy")
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "--user=test_user",
+                "ls",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "first doc" in result.output
+        lines = result.output.split("\n")
+        # default is for ordering descending date modified
+        assert lines[0] == "second doc"
+
     def test_tail_document(self):
         self.create_document("my test doc", content="dummy")
         runner = CliRunner()
@@ -97,15 +141,18 @@ class TestYewdocsClient(unittest.TestCase):
         assert result.exit_code == 0
         assert "dummy" in result.output
 
+    @unittest.skip("find out how to keep this from waiting for input")
     def test_kind_document(self):
-        self.create_document("my test doc", content="dummy", kind="md")
+        self.create_document("test kind doc", content="dummy", kind="md")
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "kind", "my test doc", "txt"])
+        result = runner.invoke(
+            cli, ["--user=test_user", "kind", "test kind doc", "txt"]
+        )
         print(result.output)
-        #  assert result.exit_code == 0
+        assert result.exit_code == 0
 
     def test_rename_document(self):
-        self.create_document("my test doc", content="dummy", kind="md")
+        self.create_document("test rename doc", content="dummy", kind="md")
         runner = CliRunner()
         result = runner.invoke(
             cli, ["--user=test_user", "rename", "my test doc", "my new test doc"]
