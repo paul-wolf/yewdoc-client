@@ -11,7 +11,6 @@ editor and filesystem commands.
     :license: BSD, see LICENSE for more details.
 
 """
-from __future__ import print_function
 
 import codecs
 import datetime
@@ -42,7 +41,9 @@ from strgen import StringGenerator as SG
 
 from .crypt import decrypt_file, encrypt_file, list_keys
 from .remote import OfflineException, Remote, RemoteException
-from .store import Document, Tag, TagDoc, YewStore
+from .store import YewStore
+from .document import Document
+from .tag import Tag, TagDoc
 from .utils import (
     bcolors,
     delete_directory,
@@ -58,7 +59,7 @@ from .utils import (
     to_utc,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Paul Wolf"
 __license__ = "BSD"
 
@@ -95,7 +96,7 @@ def status():
     """Print info about current setup."""
     click.echo("Version  : %s" % __version__)
     click.echo("User     : %s" % yew.store.username)
-    click.echo("Storage  : %s" % yew.store.get_storage_directory())
+    click.echo("Storage  : %s" % yew.store.yew_dir)
     click.echo("Offline  : %s" % yew.store.offline)
 
 
@@ -1350,15 +1351,16 @@ def read(name, list_docs, location, kind, create, append):
 
 @cli.command()
 def info():
+
     home = expanduser("~")
-    file_path = os.path.join(home, ".yew")
-    print("Python version: ", sys.version)
-    print("~/.yew exists: {}".format(os.path.exists(file_path)))
-    print("YEWDOC_USER env: {}".format(os.getenv("YEWDOC_USER")))
-    print("username: {}".format(yew.store.username))
-    print("doc store: {}".format(yew.store.get_user_directory()))
+    file_path = os.path.join(home, ".yew.d")
+    print(f"Python version: {sys.version}")
+    print(f"~/.yew.d exists: {os.path.exists(file_path)}")
+    print(f"YEWDOC_USER env: {os.getenv('YEWDOC_USER')}")
+    print(f"username: {yew.store.username}")
+    print(f"doc store: {yew.store.yew_dir}")
     counts = yew.store.get_counts()
-    print("documents={}, tags={}".format(counts["documents"], counts["tags"]))
+    print(f"documents={counts['documents']}, tags={counts['tags']}")
     email = None
     for k in YewStore.user_preferences:
         if "password" not in k:
@@ -1373,17 +1375,17 @@ def info():
         pypandoc.get_pandoc_formats()
         print("pandoc installed")
     except Exception as e:
-        print("pandoc not installed: {}".format(e))
+        print(f"pandoc not installed: {e}")
     try:
         r = yew.remote.ping()
         if r is not None and r.status_code == 200:
-            print("remote: {}".format(r.content.decode()))
+            print(f"remote: {r.content.decode()}")
         else:
-            print("remote: {}".format(r))
+            print(f"remote: {f}")
     except Exception as e:
-        print("remote error: {}".format(e))
-    print("Encryption: {}".format(email))
-    print("gnupg dir: {}".format(yew.store.get_gnupg_exists()))
+        print(f"remote error: {e}")
+    print(f"Encryption: {email}")
+    print(f"gnupg dir: {yew.store.get_gnupg_exists()}")
     if yew.store.get_gnupg_exists():
         Args = namedtuple("Args", "gpg_dir")
         args = Args(gpg_dir=".gnupg")

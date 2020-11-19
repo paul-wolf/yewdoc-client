@@ -10,4 +10,5 @@ requests==2.22.0
 StringGenerator==0.3.3
 mock==3.0.5
 python-gnupg==0.4.5
+glom
 

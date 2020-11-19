@@ -12,12 +12,11 @@ import sqlite3
 import sys
 import traceback
 import uuid
-from os.path import expanduser
 
 import click
 import dateutil
 import dateutil.parser
-import markdown
+
 import pytz
 import requests
 import tzlocal
@@ -41,162 +40,11 @@ from .utils import (
     to_utc,
 )
 
-
-class Tag(object):
-    def __init__(self, store, location, tagid, name):
-        self.store = store
-        self.location = location
-        self.tagid = tagid
-        self.name = name
-
-    def __str__(self):
-        return str(self.__unicode__())
-
-    def __unicode__(self):
-        return self.name
-
-
-class TagDoc(object):
-    def __init__(self, store, tagid, uid):
-        self.store = store
-        self.tagid = tagid
-        self.uid = uid
-
-
-class Document(object):
-    """Describes a document."""
-
-    def __init__(self, store, uid, name, location, kind, encrypt, ipfs_hash):
-        self.store = store
-        self.uid = uid
-        self.name = name
-        self.location = location
-        self.kind = kind
-        self.path = os.path.join(
-            store.get_storage_directory(), location, uid, u"doc." + kind
-        )
-        # TODO: lazy load
-        self.digest = self.get_digest()
-        self.directory_path = os.path.join(store.get_storage_directory(), location, uid)
-        self.encrypt = encrypt
-        self.ipfs_hash = ipfs_hash
-
-    def toggle_encrypted(self):
-        """
-        https://tools.ietf.org/html/rfc4880
-        We should be safe and check the content.
-        """
-        c = self.store.conn.cursor()
-        content_start = self.get_content()[:100].strip()
-        encrypted = 1 if "BEGIN PGP MESSAGE" in content_start else 0
-        sql = "UPDATE document SET encrypt = ? WHERE uid = ?"
-        c.execute(sql, (encrypted, self.uid))
-        # return boolean
-        return encrypted == 1
-
-    def check_encrypted(self):
-        return self.get_content().startswith("-----BEGIN PGP MESSAGE-----")
-
-    def is_encrypted(self):
-        return self.encrypt == 1
-
-    def short_uid(self):
-        """Return first part of uuid."""
-        return self.uid.split("-")[0]
-
-    def get_safe_name(self):
-        """Return safe name."""
-        return slugify(self.name)
-
-    def get_digest(self):
-        return get_sha_digest(self.get_content())
-
-    def get_basename(self):
-        return "doc"
-
-    def get_filename(self):
-        return u"%s.%s" % (self.get_basename(), self.kind)
-
-    def get_path(self):
-        return os.path.join(
-            self.store.get_storage_directory(),
-            self.location,
-            self.uid,
-            self.get_filename(),
-        )
-
-    def is_link(self):
-        return os.path.islink(self.get_path())
-
-    def get_media_path(self):
-        path = os.path.join(
-            self.store.get_storage_directory(), self.location, self.uid, "media"
-        )
-        if not os.path.exists(path):
-            os.makedirs(path)
-            # os.chmod(path, 0x776)
-        return path
-
-    def validate(self):
-        if not os.path.exists(self.get_path()):
-            raise Exception("Non-existant document: %s" % self.path)
-        # should also check that we are in sync with index
-        return True
-
-    def dump(self):
-        click.echo("uid      : %s" % self.uid)
-        click.echo("link     : %s" % self.is_link())
-        click.echo("title    : %s" % self.name)
-        click.echo("location : %s" % self.location)
-        click.echo("kind     : %s" % self.kind)
-        click.echo("size     : %s" % self.get_size())
-        click.echo("digest   : %s" % self.digest)
-        click.echo("path     : %s" % self.path)
-        click.echo("updated  : %s" % modification_date(self.get_path()))
-        click.echo("encrypt  : %s" % self.is_encrypted())
-        click.echo("ipfs_hash: %s" % self.ipfs_hash)
-
-    def get_last_updated_utc(self):
-        return modification_date(self.get_path())
-
-    @property
-    def updated(self):
-        return self.get_last_updated_utc()
-
-    def get_size(self):
-        return os.path.getsize(self.get_path())
-
-        return len(self.get_content())
-
-    def serialize(self, no_uid=False):
-        """Serialize as json to send to server."""
-        data = {}
-        data["uid"] = self.uid
-        data["parent"] = None
-        data["title"] = self.name
-        data["kind"] = self.kind
-        data["content"] = self.get_content()  # open(self.get_path()).read()
-        data["digest"] = self.digest
-        return json.dumps(data)
-
-    def get_content(self):
-        """Get the content."""
-        f = codecs.open(self.path, "r", "utf-8")
-        s = f.read()
-        f.close()
-        return s
-
-    def put_content(self, content, mode="w"):
-        f = codecs.open(self.path, mode, "utf-8")
-        f.write(content)
-        f.close()
-
-    def __str__(self):
-        return str(self.__unicode__())
-
-    def __unicode__(self):
-        return self.name
-
+from . document import Document
+from . tag import Tag, TagDoc
+from . import file_system as fs
+# get_username, get_user_directory, get_user_directory, get_storage_directory, get_tmp_directory
+# settings as prefs
 
 class YewStore(object):
     """Our data store.
@@ -226,84 +74,22 @@ class YewStore(object):
 
     doc_kinds = ["md", "txt", "rst", "json"]
 
-    DEFAULT_USERNAME = "yewser"
-
-    def get_gnupg_exists(self, gnupg_dir=None):
-        home = expanduser("~")
-        gnupg_dir = gnupg_dir if gnupg_dir else ".gnupg"
-        gnupg_home = os.path.join(home, gnupg_dir)
-        return os.path.exists(gnupg_home)
-
-    def get_username(self, username=None):
-        """Return username.
-
-        Try to get a username that determines the repo of docs.
-
-        Try to get it
-           from the caller.
-           from the environment
-           from a properties file ~/.yew
-           user the default constant 'yewser'
-
-        """
-
-        home = expanduser("~")
-        file_path = os.path.join(home, ".yew")
-
-        if username:
-            return username
-        elif os.getenv("YEWDOC_USER"):
-            username = os.getenv("YEWDOC_USER")
-        elif os.path.exists(file_path):
-            config = configparser.ConfigParser()
-            with open(file_path, "r") as f:
-                s = f.read()
-                config.read_string(s)
-            try:
-                username = config["Yewdoc"]["username"]
-            except Exception:
-                pass
-
-        return username if username else YewStore.DEFAULT_USERNAME
-
-    def get_user_directory(self):
-        """Get the directory for the current local user.
-
-        Expand home and then find current yewdocs user.
-
-        If username is not None, use that as user name.
-
-        """
-        home = expanduser("~")
-        yew_dir = os.path.join(home, ".yew.d", self.username)
-        if not os.path.exists(yew_dir):
-            os.makedirs(yew_dir)
-        return yew_dir
 
     def __init__(self, username=None):
         """Make sure storage is setup."""
 
-        self.username = self.get_username(username)
-        yew_dir = self.get_user_directory()
-        self.yewdb_path = os.path.join(yew_dir, "yew.db")
+        self.yew_dir = fs.get_user_directory(fs.get_username(username))
+        self.yewdb_path = os.path.join(self.yew_dir, "yew.db")
         self.conn = self.make_db(self.yewdb_path)
         # TODO: change this to be the same as get_user_directory()
-        self.username = self.get_global("username", self.username)
+        self.username = fs.get_username(username)
         self.offline = self.get_global("offline", False)
         self.location = "default"
 
-    def get_storage_directory(self):
-        """Return path for storage."""
-        return self.get_user_directory()
-
-    def get_tmp_directory(self):
-        """Return path for temporary storage."""
-
-        tmp_dir = os.path.join(self.get_storage_directory(), "tmp")
-        if not os.path.exists(tmp_dir):
-            os.makedirs(tmp_dir)
-        return tmp_dir
-
+    def get_gnupg_exists(self):
+        """Retro fit this."""
+        fs.get_gnupg_exists()
+        
     def make_db(self, path):
         """Create the db if not exist and get or create tables."""
         conn = sqlite3.connect(path)
@@ -520,7 +306,7 @@ class YewStore(object):
         # remove files
         path = doc.directory_path
         # sanity check
-        if not path.startswith(self.get_storage_directory()):
+        if not path.startswith(get_storage_directory()):
             raise Exception("Path for deletion is wrong: %s" % path)
         shutil.rmtree(path)
 
@@ -840,7 +626,7 @@ class YewStore(object):
         if not location:
             location = self.location
         uid = str(uuid.uuid1())
-        path = os.path.join(self.get_storage_directory(), location, uid)
+        path = os.path.join(self.yew_dir, location or self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, "doc." + kind.lower())
@@ -866,7 +652,7 @@ class YewStore(object):
     def import_document(self, uid, name, location, kind, content):
         if not location:
             location = self.location
-        path = os.path.join(self.get_storage_directory(), location, uid)
+        path = os.path.join(fs.get_storage_directory(), location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, "doc." + kind.lower())
