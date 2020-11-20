@@ -292,11 +292,12 @@ class Remote(object):
             # it exists, so let's put together the update url and PUT it
             url = "%s/api/document/%s/" % (self.url, doc.uid)
             data = doc.serialize(no_uid=True)
-            r = requests.put(url, data=data, headers=self.headers, verify=self.verify)
+            r = requests.put(url, json=data, headers=self.headers, verify=self.verify)
         elif status == Remote.STATUS_DOES_NOT_EXIST:
             # create a new one
+
             url = "%s/api/document/" % self.url
-            r = requests.post(url, data=data, headers=self.headers, verify=self.verify)
+            r = requests.post(url, json=data, headers=self.headers, verify=self.verify)
 
             if not r.status_code == 200:
                 print(r.content)

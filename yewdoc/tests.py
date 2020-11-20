@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+from typing import Final
 import os
+import json
 import shutil
 import unittest
 
@@ -38,23 +40,30 @@ from yewdoc import (
     take,
     user_pref,
 )
+from . import file_system as fs
 
+TEST_USERNAME: Final = "_test_user_"
 USER_PREFS = {
     "test_user": {
         "location": {
             "default": {
                 "url": "https://doc.yew.io",
-                "email": "paul.wolf@ripeco.com",
+                "email": "joe.bloggs@blah.com",
                 "username": "paul",
                 "password": "adsfasdfasdfsadf",
-                "first_name": "Paul",
-                "last_name": "Wolf",
+                "first_name": "Joe",
+                "last_name": "Bloggs",
                 "token": "c099f4d10a163e685289c981eadef04c2b839455",
             }
         }
     }
 }
 
+def write_test_user_prefs():
+    # this will create the user directory if not exists
+    path = os.path.join(fs.get_user_directory(TEST_USERNAME), "settings.json")
+    with open(path, "wt") as fp:
+        fp.write(json.dumps(USER_PREFS, indent=4))
 
 class MockRemote(object):
     def authenticate_user(self, data):
@@ -103,15 +112,16 @@ class MockResponse:
 
 class TestYewdocsClient(unittest.TestCase):
     def setUp(self):
-        self.username = "test_user"
+        self.username = TEST_USERNAME
         test_path = f"{os.path.expanduser('~')}/.yew.d/{self.username}"
         # we delete entire environment for each test
         # you really would not want to make a mistake here
         if os.path.exists(test_path):
             shutil.rmtree(test_path)
 
+        write_test_user_prefs()
         self.store = YewStore(username=self.username)
-
+        
     def create_document(self, title, content="my text", kind="md"):
         content = content
         doc = self.store.create_document(title, kind)
@@ -124,7 +134,7 @@ class TestYewdocsClient(unittest.TestCase):
     def test_show_document(self):
         self.create_document("test show document")
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "show", "my test doc"])
+        result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "show", "my test doc"])
         assert result.exit_code == 0
 
     def test_describe_document(self):
@@ -132,7 +142,7 @@ class TestYewdocsClient(unittest.TestCase):
         self.create_document("test describe document")
         runner = CliRunner()
         result = runner.invoke(
-            cli, ["--user=test_user", "describe", "test describe document"]
+            cli, [f"--user={TEST_USERNAME}", "describe", "test describe document"]
         )
 
         assert result.exit_code == 0
@@ -147,7 +157,7 @@ class TestYewdocsClient(unittest.TestCase):
         result = runner.invoke(
             cli,
             [
-                "--user=test_user",
+                f"--user={TEST_USERNAME}",
                 "ls",
             ],
         )
@@ -160,14 +170,14 @@ class TestYewdocsClient(unittest.TestCase):
     def test_tail_document(self):
         self.create_document("test tail document", content="dummy")
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "tail", "test tail document"])
+        result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "tail", "test tail document"])
         assert result.exit_code == 0
         assert "dummy" in result.output
 
     def test_head_document(self):
         self.create_document("test head", content="dummy")
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "head", "test head"])
+        result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "head", "test head"])
         assert result.exit_code == 0
         assert "dummy" in result.output
 
@@ -176,7 +186,7 @@ class TestYewdocsClient(unittest.TestCase):
         self.create_document("test kind doc", content="dummy", kind="md")
         runner = CliRunner()
         result = runner.invoke(
-            cli, ["--user=test_user", "kind", "test kind doc", "txt"]
+            cli, [f"--user={TEST_USERNAME}", "kind", "test kind doc", "txt"]
         )
 
         assert result.exit_code == 0
@@ -185,7 +195,7 @@ class TestYewdocsClient(unittest.TestCase):
         self.create_document("test rename doc", content="dummy", kind="md")
         runner = CliRunner()
         result = runner.invoke(
-            cli, ["--user=test_user", "rename", "my test doc", "my new test doc"]
+            cli, [f"--user={TEST_USERNAME}", "rename", "my test doc", "my new test doc"]
         )
 
         # assert result.exit_code == 0
@@ -194,7 +204,7 @@ class TestYewdocsClient(unittest.TestCase):
         self.create_document("test convert", content="dummy", kind="md")
         runner = CliRunner()
         result = runner.invoke(
-            cli, ["--user=test_user", "convert", "test convert", "html"]
+            cli, [f"--user={TEST_USERNAME}", "convert", "test convert", "html"]
         )
 
         assert result.exit_code == 0
@@ -216,29 +226,29 @@ class TestYewdocsClient(unittest.TestCase):
             with open("hello.txt", "w") as f:
                 f.write("Hello World!")
             result = runner.invoke(
-                cli, ["--user=test_user", "take", "hello.txt", "--force"]
+                cli, [f"--user={TEST_USERNAME}", "take", "hello.txt", "--force"]
             )
 
-            result = runner.invoke(cli, ["--user=test_user", "ls", "-l"])
+            result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "ls", "-l"])
             assert "hello" in result.output
             assert result.exit_code == 0
 
     def test_ls(self):
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "ls", "--info"])
+        result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "ls", "--info"])
 
         assert result.exit_code == 0
         # assert result.output == 'Hello Peter!\n'
 
     def test_status(self):
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "status"])
+        result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "status"])
 
         assert result.exit_code == 0
 
     def test_user_pref(self):
         runner = CliRunner()
-        runner.invoke(cli, ["--user=test_user", "user-pref"])
+        runner.invoke(cli, [f"--user={TEST_USERNAME}", "user-pref"])
         #  assert result.exit_code == 0
 
     @unittest.skip("Not ready for this to work yet")

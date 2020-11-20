@@ -56,10 +56,10 @@ from . import file_system as fs
 from .settings import Preferences
 
 
-def read_document_index(username) -> Dict:
+def read_document_index(user_directory) -> Dict:
     """Read document index into dict."""
 
-    path = os.path.join(fs.get_user_directory(username), "index.json")
+    path = os.path.join(user_directory, "index.json")
     if not os.path.exists(path):
         return list()
     with open(path) as f:
@@ -83,13 +83,12 @@ class YewStore(object):
 
     def __init__(self, username=None):
         """Init data required to find things on this local disk."""
-
-        self.yew_dir = fs.get_user_directory(fs.get_username(username))
         self.username = fs.get_username(username)
+        self.yew_dir = fs.get_user_directory(self.username)
         self.prefs = Preferences(self.username)
         self.offline = False
         self.location = "default"
-        self.index = read_document_index(self.username)
+        self.index = read_document_index(self.yew_dir)
 
     def get_gnupg_exists(self):
         """Retro fit this."""
@@ -145,7 +144,7 @@ class YewStore(object):
         # remove files from local disk
         path = doc.directory_path
         # sanity check
-        if not path.startswith(get_storage_directory()):
+        if not path.startswith(self.yew_dir):
             raise Exception("Path for deletion is wrong: %s" % path)
         shutil.rmtree(path)
 
@@ -187,7 +186,7 @@ class YewStore(object):
 
     def write_index(self) -> None:
         """Write list of doc dicts."""
-        path = os.path.join(fs.get_user_directory(self.username), "index.json")
+        path = os.path.join(self.yew_dir, "index.json")
         with open(path, "wt") as f:
             f.write(json.dumps(self.index, indent=4))
 
@@ -284,16 +283,15 @@ class YewStore(object):
 
         return self.get_doc(uid)
 
-    def import_document(self, uid, name, location, kind, content):
-        if not location:
-            location = self.location
-        path = os.path.join(fs.get_storage_directory(), location, uid)
+    
+    def import_document(self, uid, name, kind, content):
+        path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, "doc." + kind.lower())
         self.touch(p)
         if os.path.exists(p):
-            self.index_doc(uid, name, location, kind)
+            self.index_doc(uid, name, kind)
         doc = self.get_doc(uid)
         doc.put_content(content)
 

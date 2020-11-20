@@ -65,15 +65,11 @@ def get_user_directory(username=None):
     return yew_dir
 
 
-def get_storage_directory(username=None):
-    """Return path for storage."""
-    return get_user_directory(username)
-
 
 def get_tmp_directory(username=None):
     """Return path for temporary storage."""
 
-    tmp_dir = os.path.join(get_storage_directory(username), "tmp")
+    tmp_dir = os.path.join(get_user_directory(username), "tmp")
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
     return tmp_dir

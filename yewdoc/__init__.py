@@ -607,7 +607,8 @@ def pdoc(doc, status, verbose):
     required=False,
     help="Print document status even when no change",
 )
-def sync(name, force, prune, verbose):
+@click.option("--list_docs", "-l", is_flag=True, required=False)
+def sync(name, force, prune, verbose, list_docs):
     """Pushes local docs and pulls docs from remote.
 
     We don't overwrite newer docs.
@@ -621,8 +622,11 @@ def sync(name, force, prune, verbose):
     except OfflineException:
         click.echo("can't sync in offline mode")
 
-    # get local docs
-    docs_local = yew.store.get_docs()
+    if name:
+        doc = get_document_selection(name, list_docs)
+        docs_local = [doc]
+    else:
+        docs_local = yew.store.get_docs()
     remote_done = []
 
     for doc in docs_local:
@@ -674,9 +678,14 @@ def sync(name, force, prune, verbose):
             else:
                 raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
         except Exception as e:
-            print("An error occured trying to sync {}".format(str(doc)))
+            print(f"An error occured trying to sync {doc}")
             print(e)
     print("")
+
+    # if we chose to update a single doc, we are done, no tag updates or anything else
+    # because remote_done won't have values for the follow step to make sense
+    if name:
+        return
 
     remote_docs = yew.remote.get_docs()
     for rdoc in remote_docs:
@@ -690,38 +699,37 @@ def sync(name, force, prune, verbose):
         yew.store.import_document(
             remote_doc["uid"],
             remote_doc["title"],
-            "default",
             remote_doc["kind"],
             remote_doc["content"],
         )
 
-    r = yew.remote.push_tag_associations()
-    if not r.status_code == 200:
-        click.secho(r.text, fg="red")
+    if False:
+        r = yew.remote.push_tag_associations()
+        if not r.status_code == 200:
+            click.secho(r.text, fg="red")
+        tags = yew.store.get_tags("")
+        if len(tags) > 0:
+            click.echo("syncing tags to server")
+            tag_data = {}
+            for tag in tags:
+                tag_data[tag.tagid] = tag.name
 
-    tags = yew.store.get_tags("")
-    if len(tags) > 0:
-        click.echo("syncing tags to server")
-        tag_data = {}
-        for tag in tags:
-            tag_data[tag.tagid] = tag.name
+            yew.remote.push_tags(tag_data)
 
-        yew.remote.push_tags(tag_data)
+        # get tags from server
+        tags = yew.remote.pull_tags()
+        if tags:
+            click.echo("syncing tags from server")
+            for tagid, name in tags.items():
+                yew.store.sync_tag(tagid, name)
 
-    # get tags from server
-    tags = yew.remote.pull_tags()
-    if tags:
-        click.echo("syncing tags from server")
-        for tagid, name in tags.items():
-            yew.store.sync_tag(tagid, name)
-
-    tag_docs = yew.remote.pull_tag_associations()
-    if tag_docs:
-        click.echo("syncing tag associations")
-        for tag_association in tag_docs:
-            tid = tag_association["tid"]
-            uid = tag_association["uid"]
-            yew.store.associate_tag(uid, tid)
+        tag_docs = yew.remote.pull_tag_associations()
+        if tag_docs:
+            click.echo("syncing tag associations")
+            for tag_association in tag_docs:
+                tid = tag_association["tid"]
+                uid = tag_association["uid"]
+                yew.store.associate_tag(uid, tid)
 
 
 @cli.command()
