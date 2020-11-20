@@ -131,7 +131,9 @@ class TestYewdocsClient(unittest.TestCase):
 
         self.create_document("test describe document")
         runner = CliRunner()
-        result = runner.invoke(cli, ["--user=test_user", "describe", "test describe document"])
+        result = runner.invoke(
+            cli, ["--user=test_user", "describe", "test describe document"]
+        )
 
         assert result.exit_code == 0
         assert "location" in result.output
@@ -238,7 +240,6 @@ class TestYewdocsClient(unittest.TestCase):
         runner = CliRunner()
         runner.invoke(cli, ["--user=test_user", "user-pref"])
         #  assert result.exit_code == 0
-
 
     @unittest.skip("Not ready for this to work yet")
     def test_authenticate(self):

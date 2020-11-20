@@ -28,21 +28,28 @@ USER_PREFERENCES = [
 
 
 def read_user_prefs(username) -> Dict:
-    with open(os.path.join(fs.get_storage_root(username), "settings.json")) as f:
-        return json.load(f)
-
+    """Read the settings file as json into data.
+    The settings.json is in the user directory: 
+    ~/.yew.d/<username>/
+    """
+    path = os.path.join(fs.get_user_directory(username), "settings.json")
+    if not os.path.exists(path):
+        raise Exception(f"Settings file not found at: {path}")
+    with open(path) as f:
+        data = json.load(f)
+    return data
 
 def write_user_prefs(username, data) -> None:
     """Write the prefs file as json in the root dir."""
-    path = os.path.join(fs.get_storage_root(username), "settings.json")
+    path = os.path.join(fs.get_user_directory(username), "settings.json")
     with open(path, "wt") as f:
-        f.write(json.dumps(data))
+        f.write(json.dumps(data, indent=4))
 
 
 class Preferences:
     def __init__(self, username: Optional[str] = None):
         self.username = username
-        self.data = read_user_prefs(self.username).get(fs.get_username())
+        self.data = read_user_prefs(self.username)
 
     def get_user_pref(self, k):
         try:

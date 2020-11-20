@@ -45,7 +45,7 @@ def get_username(username=None):
     return username if username else DEFAULT_USERNAME
 
 
-def get_storage_root(username=None):
+def get_storage_root():
     home = expanduser("~")
     return os.path.join(home, STORAGE_DIR)
 

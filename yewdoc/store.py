@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+Handle storing documents on the local disk. 
+
+This module knows nothing about potential remote storage and syncing. 
+
+When loaded, we read a json document that describes all available docs, the index.
+
+The index can be generated from the document directory. 
+
+"""
+
 from typing import List, Optional, Dict
 import codecs
 import datetime
