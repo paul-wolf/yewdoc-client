@@ -10,37 +10,46 @@ import mock
 from click.testing import CliRunner
 
 import yewdoc
-from yewdoc import (
-    YewStore,
-    api,
-    attach,
-    browse,
-    cli,
-    configure,
-    context,
-    convert,
-    create,
-    delete,
-    describe,
-    diff,
-    edit,
-    find,
-    head,
+from yewdoc.cmd import (
+    generate_index,
+    status,
     ls,
     ping,
-    push,
-    read,
-    register,
-    rename,
-    show,
-    status,
+    info,
     sync,
-    tag,
-    tail,
-    take,
+    edit,
+    register,
     user_pref,
+    read,
+    take,
+    configure,
+    authenticate,
+    create,
+    tag,
+    convert,
+    browse,
+    context,
+    encrypt,
+    decrypt,
+    api,
+    kind,
+    find,
+    rename,
+    head,
+    tail,
+    push,
+    archive,
+    push,
+    delete,
+    show,
+    push,
+    describe,
+    verify,
+    diff,
 )
 from . import file_system as fs
+from .store import YewStore
+from .shared import cli
 
 TEST_USERNAME: Final = "_test_user_"
 USER_PREFS = {
@@ -258,7 +267,7 @@ class TestYewdocsClient(unittest.TestCase):
     @unittest.skip("Not ready for this to work yet")
     def test_authenticate(self):
         yewdoc.yew = MockYew()
-        status_code = yewdoc._authenticate("blah", "blah")
+        status_code = yewdoc.cmd.authenticate._authenticate("blah", "blah")
         assert status_code == 200
 
 

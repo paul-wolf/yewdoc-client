@@ -63,8 +63,11 @@ def read_document_index(user_directory) -> Dict:
     path = os.path.join(user_directory, "index.json")
     if not os.path.exists(path):
         return list()
-    with open(path) as f:
-        return json.load(f)
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except json.decoder.JSONDecodeError:
+        print(f"Could not getting document index. Check file: {path}")
 
 
 def match(frag, s):
@@ -150,7 +153,7 @@ class YewStore(object):
         shutil.rmtree(path)
 
         # remove from index
-        self.index = filter(lambda d: d.uid != doc.uid, self.index)
+        self.index = list(filter(lambda d: d.uid != doc.uid, self.index))
         self.write_index()
 
     def change_doc_kind(self, doc, new_kind):
