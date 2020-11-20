@@ -9,6 +9,7 @@ import shutil
 import sys
 import traceback
 import uuid
+import tarfile
 
 import dateutil
 import dateutil.parser
@@ -28,7 +29,14 @@ class bcolors:
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
 
-
+def tar_directory(path, tar_filename, mode="w:gz"):
+    """Tar with compression a directory and its subdirectories."""
+    
+    with tarfile.open(tar_filename, mode) as tar_handle:
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                tar_handle.add(os.path.join(root, file))
+                
 def is_binary_string():
     textchars = bytearray([7, 8, 9, 10, 12, 13, 27]) + bytearray(range(0x20, 0x100))
     return bool(bytes.translate(None, textchars))

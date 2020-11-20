@@ -755,6 +755,12 @@ def generate_index():
     data = yew.store.generate_doc_data()
     print(json.dumps(data, indent=4))
 
+@cli.command()
+def archive():
+    """Create tgz archive in the current directory. """
+    fn = yew.store.generate_archive()
+    print(f"Created archive: {fn}")
+
                 
 @cli.command()
 @click.argument("name", required=False)

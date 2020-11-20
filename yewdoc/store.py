@@ -36,6 +36,7 @@ from strgen import StringGenerator as SG
 import configparser
 
 from .utils import (
+    tar_directory,
     bcolors,
     delete_directory,
     err,
@@ -223,7 +224,7 @@ class YewStore(object):
             path = os.path.join(base_path, uid_dir.name)
             for f in os.scandir(path):
                 if f.is_file():
-                    if not f.name.startswith(("~", "#",)):
+                    if not (f.name.startswith(("~", "#",)) or f.name.endswith(("~", "#",))):
                         file_path = os.path.join(path, f.name)
                         with open(file_path, "rt") as fp:
                             digest = get_sha_digest(fp.read())
@@ -235,7 +236,15 @@ class YewStore(object):
                             "digest": digest,
                             
                         })
+                        break
+                            
         return data
+
+    def generate_archive(self) -> str:
+        """Create archive file in current directory of all docs."""
+        archive_file_name = f"yew_{self.username}-{datetime.datetime.now().replace(microsecond=0).isoformat()}.tgz"
+        tar_directory(self.yew_dir, archive_file_name)
+        return archive_file_name
     
     def index_doc(self, uid, name, kind) -> Document:
         """Enter document into db for the first time.
