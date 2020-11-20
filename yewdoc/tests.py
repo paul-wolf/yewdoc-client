@@ -113,7 +113,7 @@ class MockResponse:
 class TestYewdocsClient(unittest.TestCase):
     def setUp(self):
         self.username = TEST_USERNAME
-        test_path = f"{os.path.expanduser('~')}/.yew.d/{self.username}"
+        test_path = fs.get_user_directory(TEST_USERNAME) 
         # we delete entire environment for each test
         # you really would not want to make a mistake here
         if os.path.exists(test_path):

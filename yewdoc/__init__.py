@@ -523,6 +523,19 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
     else:
         docs = yew.store.get_docs(tag_objects=tag_objects, encrypted=encrypted)
 
+    # for doc in docs:
+    #     if not os.path.exists(doc.path):
+    #         continue
+    #     basename = doc.name.replace(os.sep, "-")
+    #     new_path = os.path.join(doc.directory_path, f"{basename}.{doc.kind}")
+    #     os.rename(
+    #         doc.path,
+    #         new_path
+    #     )
+    #     print(f"Renamed: {new_path}")
+    #     # raise SystemExit
+    # return
+
     if sort:
         pass
     else:
@@ -540,6 +553,10 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
             click.echo("   ", nl=False)
             click.echo(doc.kind.rjust(5), nl=False)
             click.echo("   ", nl=False)
+            if not os.path.exists(doc.path):
+                click.echo("File does not exist")
+                continue
+            
             if humanize:
                 click.echo(h.naturalsize(doc.get_size()).rjust(10), nl=False)
             else:

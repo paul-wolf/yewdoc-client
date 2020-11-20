@@ -265,7 +265,7 @@ class YewStore(object):
         path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
-        p = os.path.join(path, "doc." + kind.lower())
+        p = os.path.join(path, f"{name.replace(os.sep, '-')}.{kind.lower()}")
 
         if symlink_source_path:
             # we are symlinking to an existing path
@@ -288,7 +288,7 @@ class YewStore(object):
         path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
-        p = os.path.join(path, "doc." + kind.lower())
+        p = os.path.join(path, f"{name.replace(os.sep, '-')}.{kind.lower()}")
         self.touch(p)
         if os.path.exists(p):
             self.index_doc(uid, name, kind)

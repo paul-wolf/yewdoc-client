@@ -27,7 +27,7 @@ DOC_KINDS = ["md", "txt", "rst", "json"]
 
 def deserialize(store, data: Dict):
     """Create a document from a dict."""
-    return Document(store, data["uid"], data["name"], data["location"], data["kind"])
+    return Document(store, data["uid"], data["name"], data["kind"])
 
 
 class Document(object):
@@ -45,7 +45,7 @@ class Document(object):
     @property
     def path(self):
         return os.path.join(
-            self.store.yew_dir, self.store.location, self.uid, f"doc.{self.kind}"
+            self.store.yew_dir, self.store.location, self.uid, f"{self.name}.{self.kind}"
         )
 
     @property
@@ -87,7 +87,7 @@ class Document(object):
         return get_sha_digest(self.get_content())
 
     def get_basename(self):
-        return "doc"
+        return self.name
 
     def get_filename(self):
         return "%s.%s" % (self.get_basename(), self.kind)
