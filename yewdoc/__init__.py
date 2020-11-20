@@ -750,6 +750,13 @@ def sync(name, force, prune, verbose, list_docs):
 
 
 @cli.command()
+def generate_index():
+    """Iterate document directory and output index json to stdout."""
+    data = yew.store.generate_doc_data()
+    print(json.dumps(data, indent=4))
+
+                
+@cli.command()
 @click.argument("name", required=False)
 @click.option("--list_docs", "-l", is_flag=True, required=False)
 @click.option("--force", "-f", is_flag=True, required=False)

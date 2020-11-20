@@ -212,6 +212,31 @@ class YewStore(object):
             self.write_index()
         return missing_uids
 
+    def generate_doc_data(self):
+        """This generates the index data by reading 
+        the directory of files for the given user name. 
+        In case the index.json is corrupted or missing. 
+        """
+        data = list()
+        base_path = os.path.join(self.yew_dir, self.location)
+        for uid_dir in os.scandir(base_path):
+            path = os.path.join(base_path, uid_dir.name)
+            for f in os.scandir(path):
+                if f.is_file():
+                    if not f.name.startswith(("~", "#",)):
+                        file_path = os.path.join(path, f.name)
+                        with open(file_path, "rt") as fp:
+                            digest = get_sha_digest(fp.read())
+                        base, ext = os.path.splitext(f.name)
+                        data.append({
+                            "uid": uid_dir.name,
+                            "title": base,
+                            "kind": ext[1:],
+                            "digest": digest,
+                            
+                        })
+        return data
+    
     def index_doc(self, uid, name, kind) -> Document:
         """Enter document into db for the first time.
 
