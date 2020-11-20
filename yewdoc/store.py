@@ -214,9 +214,9 @@ class YewStore(object):
         return missing_uids
 
     def generate_doc_data(self):
-        """This generates the index data by reading 
-        the directory of files for the given user name. 
-        In case the index.json is corrupted or missing. 
+        """This generates the index data by reading
+        the directory of files for the given user name.
+        In case the index.json is corrupted or missing.
         """
         data = list()
         base_path = os.path.join(self.yew_dir, self.location)
@@ -224,20 +224,34 @@ class YewStore(object):
             path = os.path.join(base_path, uid_dir.name)
             for f in os.scandir(path):
                 if f.is_file():
-                    if not (f.name.startswith(("~", "#",)) or f.name.endswith(("~", "#",))):
+                    if not (
+                        f.name.startswith(
+                            (
+                                "~",
+                                "#",
+                            )
+                        )
+                        or f.name.endswith(
+                            (
+                                "~",
+                                "#",
+                            )
+                        )
+                    ):
                         file_path = os.path.join(path, f.name)
                         with open(file_path, "rt") as fp:
                             digest = get_sha_digest(fp.read())
                         base, ext = os.path.splitext(f.name)
-                        data.append({
-                            "uid": uid_dir.name,
-                            "title": base,
-                            "kind": ext[1:],
-                            "digest": digest,
-                            
-                        })
+                        data.append(
+                            {
+                                "uid": uid_dir.name,
+                                "title": base,
+                                "kind": ext[1:],
+                                "digest": digest,
+                            }
+                        )
                         break
-                            
+
         return data
 
     def generate_archive(self) -> str:
@@ -245,7 +259,7 @@ class YewStore(object):
         archive_file_name = f"yew_{self.username}-{datetime.datetime.now().replace(microsecond=0).isoformat()}.tgz"
         tar_directory(self.yew_dir, archive_file_name)
         return archive_file_name
-    
+
     def index_doc(self, uid, name, kind) -> Document:
         """Enter document into db for the first time.
 
@@ -317,7 +331,6 @@ class YewStore(object):
 
         return self.get_doc(uid)
 
-    
     def import_document(self, uid, name, kind, content):
         path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):

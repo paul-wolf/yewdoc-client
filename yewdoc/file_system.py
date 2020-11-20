@@ -65,7 +65,6 @@ def get_user_directory(username=None):
     return yew_dir
 
 
-
 def get_tmp_directory(username=None):
     """Return path for temporary storage."""
 

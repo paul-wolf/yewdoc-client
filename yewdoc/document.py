@@ -45,7 +45,10 @@ class Document(object):
     @property
     def path(self):
         return os.path.join(
-            self.store.yew_dir, self.store.location, self.uid, f"{self.name}.{self.kind}"
+            self.store.yew_dir,
+            self.store.location,
+            self.uid,
+            f"{self.name}.{self.kind}",
         )
 
     @property

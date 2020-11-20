@@ -29,7 +29,7 @@ USER_PREFERENCES = [
 
 def read_user_prefs(username) -> Dict:
     """Read the settings file as json into data.
-    The settings.json is in the user directory: 
+    The settings.json is in the user directory:
     ~/.yew.d/<username>/
     """
     path = os.path.join(fs.get_user_directory(username), "settings.json")
@@ -38,6 +38,7 @@ def read_user_prefs(username) -> Dict:
     with open(path) as f:
         data = json.load(f)
     return data
+
 
 def write_user_prefs(username, data) -> None:
     """Write the prefs file as json in the root dir."""

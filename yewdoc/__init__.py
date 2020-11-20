@@ -556,7 +556,7 @@ def ls(name, info, remote, humanize, encrypted, tags, sort):
             if not os.path.exists(doc.path):
                 click.echo("File does not exist")
                 continue
-            
+
             if humanize:
                 click.echo(h.naturalsize(doc.get_size()).rjust(10), nl=False)
             else:
@@ -751,17 +751,20 @@ def sync(name, force, prune, verbose, list_docs):
 
 @cli.command()
 def generate_index():
-    """Iterate document directory and output index json to stdout."""
+    """Iterate document directory and output index json to stdout.
+    This can be used to replace a damaged or missing index.
+    """
     data = yew.store.generate_doc_data()
     print(json.dumps(data, indent=4))
 
+
 @cli.command()
 def archive():
-    """Create tgz archive in the current directory. """
+    """Create tgz archive in the current directory of all documents and index and settings. """
     fn = yew.store.generate_archive()
     print(f"Created archive: {fn}")
 
-                
+
 @cli.command()
 @click.argument("name", required=False)
 @click.option("--list_docs", "-l", is_flag=True, required=False)

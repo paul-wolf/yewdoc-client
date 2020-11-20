@@ -59,11 +59,13 @@ USER_PREFS = {
     }
 }
 
+
 def write_test_user_prefs():
     # this will create the user directory if not exists
     path = os.path.join(fs.get_user_directory(TEST_USERNAME), "settings.json")
     with open(path, "wt") as fp:
         fp.write(json.dumps(USER_PREFS, indent=4))
+
 
 class MockRemote(object):
     def authenticate_user(self, data):
@@ -113,7 +115,7 @@ class MockResponse:
 class TestYewdocsClient(unittest.TestCase):
     def setUp(self):
         self.username = TEST_USERNAME
-        test_path = fs.get_user_directory(TEST_USERNAME) 
+        test_path = fs.get_user_directory(TEST_USERNAME)
         # we delete entire environment for each test
         # you really would not want to make a mistake here
         if os.path.exists(test_path):
@@ -121,7 +123,7 @@ class TestYewdocsClient(unittest.TestCase):
 
         write_test_user_prefs()
         self.store = YewStore(username=self.username)
-        
+
     def create_document(self, title, content="my text", kind="md"):
         content = content
         doc = self.store.create_document(title, kind)
@@ -170,7 +172,9 @@ class TestYewdocsClient(unittest.TestCase):
     def test_tail_document(self):
         self.create_document("test tail document", content="dummy")
         runner = CliRunner()
-        result = runner.invoke(cli, [f"--user={TEST_USERNAME}", "tail", "test tail document"])
+        result = runner.invoke(
+            cli, [f"--user={TEST_USERNAME}", "tail", "test tail document"]
+        )
         assert result.exit_code == 0
         assert "dummy" in result.output
 
