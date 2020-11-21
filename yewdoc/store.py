@@ -359,6 +359,7 @@ class YewStore(object):
         We already know the uid.
 
         """
+        name = name.replace(os.sep, "-")
         path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)

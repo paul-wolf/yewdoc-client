@@ -1,3 +1,4 @@
+import os
 import sys
 
 import click
@@ -55,6 +56,7 @@ def read(ctx, name, list_docs, location, kind, create, append):
         create = True
         append = False
 
+    name = name.replace(os.sep, "-")
     # if name, we want to either 1) create new file with that name
     # or 2) we want to append or replace an existing one
     if append:

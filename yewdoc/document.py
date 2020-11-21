@@ -136,6 +136,10 @@ class Document(object):
     def get_size(self):
         return os.path.getsize(self.get_path())
 
+    @property
+    def size(self):
+        return self.get_size()
+
     def serialize(self, no_uid=False, no_content=False):
         """Serialize as json to send to server."""
         data = {}

@@ -64,6 +64,5 @@ def edit(ctx, name, list_docs, open_file, gpghome):
     if encrypted:
         encrypt_file(doc.get_path(), email, gpghome)
 
-    # yew.remote.push_doc(yew.store.get_doc(doc.uid))
     # yew.store.prefs.put_user_pref("current_doc", doc.uid)
     # yew.store.prefs.update_recent(doc)

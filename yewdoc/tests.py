@@ -176,7 +176,7 @@ class TestYewdocsClient(unittest.TestCase):
         assert "first doc" in result.output
         lines = result.output.split("\n")
         # default is for ordering descending date modified
-        assert lines[0] == "second doc"
+        assert lines[0] == "first doc"
 
     def test_tail_document(self):
         self.create_document("test tail document", content="dummy")

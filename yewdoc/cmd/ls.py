@@ -11,9 +11,11 @@ from .. import shared
 @click.option("--humanize", "-h", is_flag=True, required=False)
 @click.option("--encrypted", "-e", is_flag=True, required=False)
 @click.option("--tags", "-t", required=False)
-@click.option("--sort", "-s", required=False)
+@click.option("--sort", "-s", is_flag=True, required=False)
+@click.option("--size", "-S", is_flag=True, required=False)
+@click.option("--descending", "-d", is_flag=True, required=False)
 @click.pass_context
-def ls(ctx, name, info, remote, humanize, encrypted, tags, sort):
+def ls(ctx, name, info, remote, humanize, encrypted, tags, sort, size, descending):
     """List documents."""
     yew = ctx.obj["YEW"]
     if remote:
@@ -36,23 +38,11 @@ def ls(ctx, name, info, remote, humanize, encrypted, tags, sort):
     else:
         docs = yew.store.get_docs(tag_objects=tag_objects, encrypted=encrypted)
 
-    # for doc in docs:
-    #     if not os.path.exists(doc.path):
-    #         continue
-    #     basename = doc.name.replace(os.sep, "-")
-    #     new_path = os.path.join(doc.directory_path, f"{basename}.{doc.kind}")
-    #     os.rename(
-    #         doc.path,
-    #         new_path
-    #     )
-    #     print(f"Renamed: {new_path}")
-    #     # raise SystemExit
-    # return
-
-    if sort:
-        pass
+    if sort or size or descending:
+        if size:
+            docs.sort(key=lambda doc: doc.size, reverse=descending)
     else:
-        docs.sort(key=lambda doc: doc.updated, reverse=True)
+        docs.sort(key=lambda doc: doc.updated, reverse=descending)
 
     data = []
     for doc in docs:

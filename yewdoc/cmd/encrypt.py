@@ -30,6 +30,5 @@ def encrypt(ctx, name, list_docs, gpghome):
     # try to encrypt in place
     encrypt_file(doc.get_path(), email, gpghome)
 
-    yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)

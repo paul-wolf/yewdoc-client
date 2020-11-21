@@ -24,7 +24,7 @@ def take(ctx, path, kind, force, symlink):
 
     """
     yew = ctx.obj["YEW"]
-
+    # import ipdb; ipdb.set_trace()
     if not os.path.exists(path):
         click.echo(f"path does not exist: {path}")
         sys.exit(1)
@@ -45,7 +45,7 @@ def take(ctx, path, kind, force, symlink):
     if not kind:
         kind = "txt"
     title = os.path.splitext(path)[0]
-
+    title = title.replace(os.sep, "-")
     # check if we have one with this title
     # the behaviour we want is for the user to continuously
     # ingest the same file that might be updated out-of-band

@@ -19,6 +19,7 @@ from .shared import cli
 from .cmd import (
     generate_index,
     dir,
+    purge,
     attach,
     status,
     ls,
@@ -47,10 +48,8 @@ from .cmd import (
     tail,
     push,
     archive,
-    push,
     delete,
     show,
-    push,
     describe,
     verify,
     diff,
