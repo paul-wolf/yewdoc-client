@@ -9,6 +9,7 @@ import dateutil.parser
 import requests
 from requests.exceptions import ConnectionError
 
+from .constants import RemoteStatus, STATUS_MSG
 
 class RemoteException(Exception):
     """Custom exception for remote errors."""
@@ -49,23 +50,12 @@ class Remote(object):
             Try: 'yd configure'"""
             )
 
-    def get_headers(self):
-        """Get headers used for remote calls."""
-        return self.headers
-
-    def get(self, endpoint, data={}, timeout=10):
+    def _get(self, endpoint, data={}, timeout=10):
         """Perform get on remote with endpoint."""
         self.check_data()
         url = f"{self.url}/api/{endpoint}/"
         return requests.get(
             url, headers=self.headers, params=data, verify=self.verify, timeout=timeout
-        )
-
-    def post(self, endpoint, data={}):
-        """Perform post on remote."""
-        url = f"{self.url}/api/{endpoint}/"
-        return requests.post(
-            url, headers=self.headers, data=json.dumps(data), verify=self.verify
         )
 
     def unauthenticated_post(self, endpoint, data={}):
@@ -113,7 +103,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            return self.get("ping", timeout=timeout)
+            return self._get("ping", timeout=timeout)
         except ConnectionError:
             click.echo("Could not connect to server")
             self.offline = True
@@ -141,7 +131,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            return self.get("")
+            return self._get("")
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
@@ -154,7 +144,7 @@ class Remote(object):
         """
         if self.offline:
             raise OfflineException()
-        r = self.get("exists", {"uid": uid})
+        r = self._get("exists", {"uid": uid})
         if r and r.status_code == 200:
             data = json.loads(r.content)
             if "digest" in data:
@@ -163,7 +153,7 @@ class Remote(object):
             return None
         return None
 
-    def fetch(self, uid):
+    def fetch_doc(self, uid):
         """Get a document from remote.
 
         But just return a dictionary. Don't make it local.
@@ -172,41 +162,27 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            r = self.get("document/%s" % uid)
+            r = self._get("document/%s" % uid)
             remote_doc = json.loads(r.content)
             return remote_doc
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
 
-    def get_docs(self):
+    def list_docs(self):
         """Get list of remote documents."""
         if self.offline:
             raise OfflineException()
-        r = self.get("document")
+        r = self._get("document")
         try:
-            response = json.loads(r.content)
-            return response
+            return json.loads(r.content)
         except ConnectionError:
             click.echo("Could not connect to server")
             return None
-
-    STATUS_NO_CONNECTION = -1
-    STATUS_REMOTE_SAME = 0
-    STATUS_REMOTE_NEWER = 1
-    STATUS_REMOTE_OLDER = 2
-    STATUS_DOES_NOT_EXIST = 3
-    STATUS_REMOTE_DELETED = 4
-
-    STATUS_MSG = {
-        STATUS_NO_CONNECTION: "can't connect",
-        STATUS_REMOTE_SAME: "documents are the same",
-        STATUS_REMOTE_NEWER: "remote is newer",
-        STATUS_REMOTE_OLDER: "remote is older",
-        STATUS_DOES_NOT_EXIST: "remote does not exist",
-        STATUS_REMOTE_DELETED: "remote was deleted",
-    }
-
+        except Exception as e:
+            print(e)
+                  
+            
     def doc_status(self, uid):
         """Return status: exists-same, exists-newer, exists-older, does-not-exist."""
 
@@ -223,23 +199,19 @@ class Remote(object):
             return -1
 
         if not rexists:
-            return Remote.STATUS_DOES_NOT_EXIST
+            return RemoteStatus.STATUS_DOES_NOT_EXIST
 
         if "deleted" in rexists:
-            return Remote.STATUS_REMOTE_DELETED
+            return RemoteStatus.STATUS_REMOTE_DELETED
 
         if rexists and rexists["digest"] == doc.get_digest():
-            return Remote.STATUS_REMOTE_SAME
+            return RemoteStatus.STATUS_REMOTE_SAME
 
         remote_dt = dateutil.parser.parse(rexists["date_updated"])
         remote_newer = remote_dt > doc.get_last_updated_utc()
         if remote_newer:
-            return Remote.STATUS_REMOTE_NEWER
-        return Remote.STATUS_REMOTE_OLDER
-
-    def pull_doc(self, uid):
-        """Get document from server and store locally."""
-        pass
+            return RemoteStatus.STATUS_REMOTE_NEWER
+        return RemoteStatus.STATUS_REMOTE_OLDER
 
     def remote_configured(self) -> bool:
         token = self.store.prefs.get_user_pref("location.default.token")
@@ -256,29 +228,29 @@ class Remote(object):
             raise OfflineException()
 
         if not self.remote_configured():
-            return Remote.STATUS_NO_CONNECTION
+            return RemoteStatus.STATUS_NO_CONNECTION
 
         try:
             status = self.doc_status(doc.uid)
         except RemoteException:
             click.echo("could not reach remote")
-            return Remote.STATUS_NO_CONNECTION
+            return RemoteStatus.STATUS_NO_CONNECTION
 
         if (
-            status == Remote.STATUS_REMOTE_SAME
-            or status == Remote.STATUS_REMOTE_NEWER
-            or status == Remote.STATUS_REMOTE_DELETED
+            status == RemoteStatus.STATUS_REMOTE_SAME
+            or status == RemoteStatus.STATUS_REMOTE_NEWER
+            or status == RemoteStatus.STATUS_REMOTE_DELETED
         ):
             return status
 
         data = doc.serialize()
 
-        if status == Remote.STATUS_REMOTE_OLDER:
+        if status == RemoteStatus.STATUS_REMOTE_OLDER:
             # it exists, so let's put together the update url and PUT it
             url = "%s/api/document/%s/" % (self.url, doc.uid)
             data = doc.serialize(no_uid=True)
             r = requests.put(url, json=data, headers=self.headers, verify=self.verify)
-        elif status == Remote.STATUS_DOES_NOT_EXIST:
+        elif status == RemoteStatus.STATUS_DOES_NOT_EXIST:
             # create a new one
 
             url = "%s/api/document/" % self.url
@@ -289,22 +261,12 @@ class Remote(object):
 
         return status
 
-    def get_token(self, remote_username, password):
-        """Get and store token for a registered user.
-
-        username and password required
-
-        """
-        if self.offline:
-            raise OfflineException()
-        pass
-
     def push_tags(self, tag_data):
         """Post tags to server."""
         if self.offline:
             raise OfflineException()
 
-        url = "%s/api/tag_list/" % (self.url)
+        url = f"{self.url}/api/tag_list/"
         return requests.post(
             url, data=json.dumps(tag_data), headers=self.headers, verify=self.verify
         )
@@ -321,7 +283,7 @@ class Remote(object):
             td["uid"] = tag_doc.uid
             td["tid"] = tag_doc.tagid
             data.append(td)
-        url = "%s/api/tag_docs/" % (self.url)
+        url = f"{self.url}/api/tag_docs/"
         r = requests.post(
             url, data=json.dumps(data), headers=self.headers, verify=self.verify
         )
@@ -332,7 +294,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
 
-        url = "%s/api/tag_list/" % (self.url)
+        url = f"{self.url}/api/tag_list/"
         r = requests.get(url, headers=self.headers, verify=self.verify)
         return json.loads(r.content)
 
@@ -341,6 +303,6 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
 
-        url = "%s/api/tag_docs/" % (self.url)
+        url = f"{self.url}/api/tag_docs/"
         r = requests.get(url, headers=self.headers, verify=self.verify)
         return json.loads(r.content)

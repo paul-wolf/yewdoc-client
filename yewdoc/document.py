@@ -18,7 +18,7 @@ DOC_KINDS = ["md", "txt", "rst", "json"]
 
 def deserialize(store, data: Dict):
     """Create a document from a dict."""
-    return Document(store, data["uid"], data["name"], data["kind"])
+    return Document(store, data["uid"], data["title"], data["kind"])
 
 
 class Document(object):
@@ -50,6 +50,10 @@ class Document(object):
     def digest(self):
         return self.get_digest()
 
+    @property
+    def is_symlink(self):
+        return os.path.islink(self.path)
+    
     def toggle_encrypted(self):
         """
         https://tools.ietf.org/html/rfc4880

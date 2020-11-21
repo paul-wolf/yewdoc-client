@@ -9,9 +9,8 @@ from .. import shared
 @click.argument("name", required=False)
 @click.option("--list_docs", "-l", is_flag=True, required=False)
 @click.option("--force", "-f", is_flag=True, required=False)
-@click.option("--remote", "-r", is_flag=True, required=False)
 @click.pass_context
-def delete(ctx, name, list_docs, force, remote):
+def delete(ctx, name, list_docs, force):
     """Delete a document.
 
     To delete a remote document, it needs to be local. So,
@@ -33,6 +32,4 @@ def delete(ctx, name, list_docs, force, remote):
     if d:
         for doc in docs:
             yew.store.delete_document(doc)
-            if remote:
-                yew.remote.delete("document/%s" % doc.uid)
-                click.echo("removed %s" % doc.name)
+

@@ -53,4 +53,5 @@ from .cmd import (
     describe,
     verify,
     diff,
+    rls,
 )

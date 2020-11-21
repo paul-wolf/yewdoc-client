@@ -7,7 +7,6 @@ from .. import shared
 @shared.cli.command()
 @click.argument("name", required=False)
 @click.option("--info", "-l", is_flag=True, required=False)
-@click.option("--remote", "-r", is_flag=True, required=False)
 @click.option("--humanize", "-h", is_flag=True, required=False)
 @click.option("--encrypted", "-e", is_flag=True, required=False)
 @click.option("--tags", "-t", required=False)
@@ -15,15 +14,10 @@ from .. import shared
 @click.option("--size", "-S", is_flag=True, required=False)
 @click.option("--descending", "-d", is_flag=True, required=False)
 @click.pass_context
-def ls(ctx, name, info, remote, humanize, encrypted, tags, sort, size, descending):
+def ls(ctx, name, info, humanize, encrypted, tags, sort, size, descending):
     """List documents."""
     yew = ctx.obj["YEW"]
-    if remote:
-        response = yew.remote.get_docs()
-        for doc in response:
-            click.echo("%s %s" % (get_short_uid(doc["uid"]), doc["title"]))
 
-        sys.exit(0)
     tag_objects = []
     if tags:
         tag_objects = yew.store.parse_tags(tags)
@@ -84,9 +78,6 @@ def ls(ctx, name, info, remote, humanize, encrypted, tags, sort, size, descendin
             else:
                 click.echo("    ", nl=False)
 
-        # path = os.path.join(fs.get_user_directory(), "index.json")
-        # with open(path, "w") as f:
-        #     f.write(json.dumps(data, indent=4))
 
         click.echo(doc.name, nl=False)
         if info:
