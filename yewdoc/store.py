@@ -11,10 +11,7 @@ The index can be generated from the document directory.
 """
 
 from typing import List, Optional, Dict
-import codecs
 import datetime
-import difflib
-import hashlib
 import json
 import os
 import re
@@ -22,18 +19,11 @@ import shutil
 import sys
 import traceback
 import uuid
-
 import click
-import dateutil
-import dateutil.parser
-
-import pytz
-import requests
-import tzlocal
-from requests.exceptions import ConnectionError
-from strgen import StringGenerator as SG
-
 import configparser
+
+from requests.exceptions import ConnectionError
+
 
 from .utils import (
     tar_directory,
@@ -56,8 +46,8 @@ from . import file_system as fs
 from .settings import Preferences
 
 
-def read_document_index(user_directory) -> Dict:
-    """Read document index into dict."""
+def read_document_index(user_directory) -> List:
+    """Read document index into list."""
 
     path = os.path.join(user_directory, "index.json")
     if not os.path.exists(path):
@@ -67,7 +57,7 @@ def read_document_index(user_directory) -> Dict:
             return json.load(f)
     except json.decoder.JSONDecodeError:
         print(f"Could not getting document index. Check file: {path}")
-
+        
 
 def match(frag, s):
     """Match a search string frag with string s.
@@ -155,11 +145,18 @@ class YewStore(object):
     def delete_document(self, doc: Document) -> None:
         """Delete a document and its associated entities."""
 
+        uid = doc.uid
+        
         # remove files from local disk
         path = doc.directory_path
         # sanity check
         if not path.startswith(self.yew_dir):
-            raise Exception("Path for deletion is wrong: %s" % path)
+            raise Exception(f"Path for deletion is wrong: {path}")
+
+        # unlink the document file because it might be a symlink
+        # whatever method we use for deleting the dir tree might follow the link
+        os.unlink(doc.path)
+        
         if os.path.exists(path):
             shutil.rmtree(path)
 
@@ -167,6 +164,11 @@ class YewStore(object):
         self.index = list(filter(lambda d: d["uid"] != doc.uid, self.index))
         self.write_index()
 
+        # remember we don't want this anymore
+        deleted_index = self.get_deleted_index()
+        deleted_index.append(uid)
+        self.write_deleted_index(deleted_index)
+        
     def change_doc_kind(self, doc, new_kind):
         """Change type of document.
 
@@ -208,6 +210,24 @@ class YewStore(object):
         path = os.path.join(self.yew_dir, "index.json")
         with open(path, "wt") as f:
             f.write(json.dumps(self.index, indent=4))
+
+    def get_deleted_index(self) -> List:
+        """Read deleted document index into list."""
+        path = os.path.join(self.yew_dir, "deleted_index.json")
+        if not os.path.exists(path):
+            return list()
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.decoder.JSONDecodeError:
+            print(f"Could not get deleted document index. Check file: {path}")
+
+        
+    def write_deleted_index(self, deleted_index) -> None:
+        """Write list of deleted uids."""
+        path = os.path.join(self.yew_dir, "deleted_index.json")
+        with open(path, "wt") as f:
+            f.write(json.dumps(deleted_index, indent=4))
 
     def get_docs(self, tag_objects=[], encrypted=False) -> List[Document]:
         """Get all docs using the index.

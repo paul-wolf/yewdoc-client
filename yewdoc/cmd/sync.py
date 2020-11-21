@@ -89,7 +89,7 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
     else:
         docs_local = yew.store.get_docs()
     remote_done = []
-
+    deleted_index = yew.store.get_deleted_index()
     remote_index = yew.remote.list_docs()
 
     for doc in docs_local:
@@ -160,10 +160,10 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
         if rdoc["uid"] in remote_done:
             continue
 
-        click.echo(
-            f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}"
-        )
-        if not fake:
+        if not fake and rdoc["uid"] not in deleted_index:
+            click.echo(
+                f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}"
+            )
             remote_doc = yew.remote.fetch_doc(rdoc["uid"])
             yew.store.import_document(
                 remote_doc["uid"],
