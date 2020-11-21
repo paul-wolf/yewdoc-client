@@ -25,8 +25,11 @@ def take(ctx, path, kind, force, symlink):
     """
     yew = ctx.obj["YEW"]
 
-    if not os.path.exists(path) or not os.path.isfile(path):
-        click.echo("path does not exist: %s" % path)
+    if not os.path.exists(path):
+        click.echo(f"path does not exist: {path}")
+        sys.exit(1)
+    if not os.path.isfile(path):
+        click.echo(f"path is not a file: {path}")
         sys.exit(1)
 
     content = None
@@ -53,16 +56,14 @@ def take(ctx, path, kind, force, symlink):
             if not force:
                 click.echo("A document with this title exists already")
             if force or click.confirm(
-                "Overwrite existing document: %s ?" % docs[0].name, abort=True
+                f"Overwrite existing document: {docs[0].name} ?", abort=True
             ):
                 docs[0].put_content(content)
-                yew.remote.push_doc(docs[0])
                 sys.exit(0)
 
     if symlink:
         doc = yew.store.create_document(title, kind, symlink_source_path=path)
-        click.echo("Symlinked: %s" % doc.uid)
+        click.echo(f"Symlinked: {doc.uid}")
     else:
         doc = yew.store.create_document(title, kind)
         doc.put_content(content)
-    yew.remote.push_doc(doc)

@@ -1,8 +1,11 @@
+import os
 import sys
 
 import click
+from jinja2 import Template
 
 from .. import shared
+from .. import file_system as fs
 
 try:
     import pypandoc
@@ -32,7 +35,7 @@ def browse(ctx, name, template, list_docs, tags):
         # get our default
         p = os.path.realpath(__file__)
         template_path = os.path.dirname(p)
-        template_path = os.path.join(template_path, "template_0.html")
+        template_path = os.path.join(template_path, "..", "template_0.html")
     if not os.path.exists(template_path):
         click.echo("does not exist: {}".format(template_path))
         sys.exit(1)
@@ -47,7 +50,7 @@ def browse(ctx, name, template, list_docs, tags):
 
     nav = ""
     for doc in docs:
-        tmp_dir = yew.store.get_tmp_directory()
+        tmp_dir = fs.get_tmp_directory()
         tmp_file = os.path.join(tmp_dir, doc.get_safe_name() + ".html")
         a = '<a href="file://%s">%s</a><br/>\n' % (tmp_file, doc.name)
         nav += a
@@ -66,7 +69,7 @@ def browse(ctx, name, template, list_docs, tags):
             else:
                 kind = doc.kind
             html = pypandoc.convert(doc.get_path(), format=kind, to="html")
-        tmp_dir = yew.store.get_tmp_directory()
+        tmp_dir = fs.get_tmp_directory()
         tmp_file = os.path.join(tmp_dir, doc.get_safe_name() + ".html")
         with click.open_file(template_path, "r") as f:
             t = f.read()
@@ -81,6 +84,7 @@ def browse(ctx, name, template, list_docs, tags):
         #     content=html,
         #     nav=nav
         # )
-        f = codecs.open(tmp_file, "w", "utf-8").write(dest)
-
+        with open(tmp_file, "w") as f:
+            f.write(dest)
+        click.echo(f"Wrote {tmp_file}")
     click.launch(tmp_file)

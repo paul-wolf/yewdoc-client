@@ -37,7 +37,6 @@ import configparser
 
 from .utils import (
     tar_directory,
-    bcolors,
     delete_directory,
     err,
     get_sha_digest,
@@ -71,11 +70,22 @@ def read_document_index(user_directory) -> Dict:
 
 
 def match(frag, s):
+    """Match a search string frag with string s.
+
+    This is how we match document titles/names.
+
+    """
     return re.search(frag, s, re.IGNORECASE)
 
 
 def doc_from_data(store, data):
     return Document(store, data["uid"], data["title"], data["kind"])
+
+
+def touch(path):
+    """Update/create the access/modified time of the file at path."""
+    with open(path, "a"):
+        os.utime(path, None)
 
 
 class YewStore(object):
@@ -150,14 +160,19 @@ class YewStore(object):
         # sanity check
         if not path.startswith(self.yew_dir):
             raise Exception("Path for deletion is wrong: %s" % path)
-        shutil.rmtree(path)
+        if os.path.exists(path):
+            shutil.rmtree(path)
 
         # remove from index
-        self.index = list(filter(lambda d: d.uid != doc.uid, self.index))
+        self.index = list(filter(lambda d: d["uid"] != doc.uid, self.index))
         self.write_index()
 
     def change_doc_kind(self, doc, new_kind):
-        """Change type of document."""
+        """Change type of document.
+
+        We just change the extension and update the index.
+
+        """
 
         path_src = doc.path
         doc.kind = new_kind
@@ -203,6 +218,10 @@ class YewStore(object):
         return [doc_from_data(self, data) for data in self.index]
 
     def verify_docs(self, prune=False) -> List:
+        """Check that docs in the index exist on disk.
+        Return uids of missing docs.
+        Update the index if prune=True.
+        """
         docs = self.get_docs()
         missing_uids = list()
         for doc in docs:
@@ -266,7 +285,8 @@ class YewStore(object):
     def index_doc(self, uid, name, kind) -> Document:
         """Enter document into db for the first time.
 
-        We assume the document exists in the directory
+        We assume the document exists in the directory not the index.
+        But we handle the case where it is in the index.
 
         """
         try:
@@ -290,12 +310,13 @@ class YewStore(object):
         The doc object has new information not yet in the index.
         """
         for d in self.index:
-            if d.get("uid"):
+            if d.get("uid") == doc.uid:
                 d["title"] = doc.name
                 d["kind"] = doc.kind
                 d["digest"] = doc.digest
+                self.write_index()
                 break
-        self.write_index()
+
         return doc
 
     def get_short(self, s) -> Optional[Document]:
@@ -307,12 +328,11 @@ class YewStore(object):
                 return self.get_doc(d.get("uid"))
         return None
 
-    def touch(self, path):
-        with codecs.open(path, "a", "utf-8"):
-            os.utime(path, None)
-
     def create_document(self, name, kind, content=None, symlink_source_path=None):
-        uid = str(uuid.uuid1())
+        """Create a new document.
+        We might be using a symlink.
+        """
+        uid = str(uuid.uuid4())
         path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
@@ -325,7 +345,7 @@ class YewStore(object):
             os.symlink(symlink_source_path, p)
         else:
             # the normal case
-            self.touch(p)
+            touch(p)
 
         if os.path.exists(p):
             doc = self.index_doc(uid, name, kind)
@@ -334,12 +354,16 @@ class YewStore(object):
 
         return self.get_doc(uid)
 
-    def import_document(self, uid, name, kind, content):
+    def import_document(self, uid: str, name: str, kind: str, content: str) -> Document:
+        """Create a document in storage using a string.
+        We already know the uid.
+
+        """
         path = os.path.join(self.yew_dir, self.location, uid)
         if not os.path.exists(path):
             os.makedirs(path)
         p = os.path.join(path, f"{name.replace(os.sep, '-')}.{kind.lower()}")
-        self.touch(p)
+        touch(p)
         if os.path.exists(p):
             self.index_doc(uid, name, kind)
         doc = self.get_doc(uid)

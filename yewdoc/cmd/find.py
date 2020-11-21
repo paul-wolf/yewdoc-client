@@ -1,4 +1,5 @@
 import sys
+import re
 
 import click
 
@@ -17,6 +18,7 @@ def find(ctx, spec, string_only, insensitive):
     in which case a simple string match is used.
 
     """
+    yew = ctx.obj["YEW"]
 
     docs = yew.store.get_docs()
 

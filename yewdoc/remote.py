@@ -1,27 +1,13 @@
 # -*- coding: utf-8 -*-
-import codecs
-import datetime
-import difflib
-import hashlib
+import sys
 import json
 import os
-import re
-import shutil
-import sqlite3
-import sys
-import traceback
-import uuid
-from os.path import expanduser
+from typing import Optional
 
-import click
 import dateutil
 import dateutil.parser
-import markdown
-import pytz
 import requests
-import tzlocal
 from requests.exceptions import ConnectionError
-from strgen import StringGenerator as SG
 
 
 class RemoteException(Exception):
@@ -41,12 +27,11 @@ class Remote(object):
 
     def __init__(self, store):
         self.store = store
-        self.token = u"Token %s" % self.store.prefs.get_user_pref(
-            "location.default.token"
-        )
+        token = self.store.prefs.get_user_pref("location.default.token")
+        self.token = f"Token {token}"
         self.headers = {"Authorization": self.token, "Content-Type": "application/json"}
         self.url = self.store.prefs.get_user_pref("location.default.url")
-        self.verify = False
+        self.verify = True
         self.basic_auth_user = "yewser"
         self.basic_auth_pass = "yewleaf"
         self.basic_auth = False
@@ -71,20 +56,20 @@ class Remote(object):
     def get(self, endpoint, data={}, timeout=10):
         """Perform get on remote with endpoint."""
         self.check_data()
-        url = u"%s/api/%s/" % (self.url, endpoint)
+        url = f"{self.url}/api/{endpoint}/"
         return requests.get(
             url, headers=self.headers, params=data, verify=self.verify, timeout=timeout
         )
 
     def post(self, endpoint, data={}):
         """Perform post on remote."""
-        url = u"%s/api/%s/" % (self.url, endpoint)
+        url = f"{self.url}/api/{endpoint}/"
         return requests.post(
             url, headers=self.headers, data=json.dumps(data), verify=self.verify
         )
 
     def unauthenticated_post(self, endpoint, data={}):
-        url = u"%s/%s/" % (self.url, endpoint)
+        url = f"{self.url}/{endpoint}/"
         return requests.post(
             url, headers=self.headers, data=json.dumps(data), verify=self.verify
         )
@@ -94,7 +79,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         self.check_data()
-        url = u"%s/api/%s/" % (self.url, endpoint)
+        url = f"{self.url}/api/{endpoint}/"
         try:
             return requests.delete(url, headers=self.headers, verify=self.verify)
         except ConnectionError:
@@ -106,7 +91,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            url = "%s/doc/register_user/" % self.url
+            url = f"{self.url}/doc/register_user/"
             return requests.post(url, data=data, verify=self.verify)
         except ConnectionError:
             click.echo("Could not connect to server")
@@ -117,7 +102,7 @@ class Remote(object):
         if self.offline:
             raise OfflineException()
         try:
-            url = "{}/doc/authenticate_user/".format(self.url)
+            url = f"{self.url}/doc/authenticate_user/"
             return requests.post(url, data=data, verify=self.verify)
         except ConnectionError:
             click.echo("Could not connect to server")
@@ -161,7 +146,7 @@ class Remote(object):
             click.echo("Could not connect to server")
             return None
 
-    def doc_exists(self, uid):
+    def doc_exists(self, uid: str) -> Optional[str]:
         """Check if a remote doc with uid exists.
 
         Return remote digest or None.
@@ -214,12 +199,12 @@ class Remote(object):
     STATUS_REMOTE_DELETED = 4
 
     STATUS_MSG = {
-        STATUS_NO_CONNECTION: u"can't connect",
-        STATUS_REMOTE_SAME: u"documents are the same",
-        STATUS_REMOTE_NEWER: u"remote is newer",
-        STATUS_REMOTE_OLDER: u"remote is older",
-        STATUS_DOES_NOT_EXIST: u"remote does not exist",
-        STATUS_REMOTE_DELETED: u"remote was deleted",
+        STATUS_NO_CONNECTION: "can't connect",
+        STATUS_REMOTE_SAME: "documents are the same",
+        STATUS_REMOTE_NEWER: "remote is newer",
+        STATUS_REMOTE_OLDER: "remote is older",
+        STATUS_DOES_NOT_EXIST: "remote does not exist",
+        STATUS_REMOTE_DELETED: "remote was deleted",
     }
 
     def doc_status(self, uid):
@@ -256,7 +241,7 @@ class Remote(object):
         """Get document from server and store locally."""
         pass
 
-    def remote_configured(self):
+    def remote_configured(self) -> bool:
         token = self.store.prefs.get_user_pref("location.default.token")
         return True if token else False
 

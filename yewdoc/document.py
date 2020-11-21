@@ -6,18 +6,9 @@ import codecs
 import click
 
 from .utils import (
-    bcolors,
-    delete_directory,
-    err,
     get_sha_digest,
-    get_short_uid,
-    is_binary_file,
-    is_binary_string,
-    is_short_uuid,
-    is_uuid,
     modification_date,
     slugify,
-    to_utc,
 )
 
 from . import file_system as fs

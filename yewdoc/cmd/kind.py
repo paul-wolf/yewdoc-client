@@ -3,6 +3,7 @@ import sys
 import click
 
 from .. import shared
+from .. import document
 
 
 @shared.cli.command()
@@ -16,14 +17,9 @@ def kind(ctx, name, kind, list_docs):
     doc = shared.get_document_selection(ctx, name, list_docs)
     if not kind:
         click.echo(doc)
-        click.echo("Current document kind: '%s'" % doc.kind)
-        for i, d in enumerate(DOC_KINDS):
-            click.echo("%s" % (d))
+        click.echo(f"Current document kind: '{doc.kind}'")
+        for k in document.DOC_KINDS:
+            click.echo(k)
         kind = click.prompt("Select the new document kind ", type=str)
-    click.echo("Changing document kind to: %s" % kind)
-    doc = yew.store.change_doc_kind(doc, kind)
-    try:
-        yew.remote.push_doc(doc)
-    except Exception as e:
-        print(e)
-    sys.exit(0)
+    click.echo(f"Changing document kind to: {kind}")
+    yew.store.change_doc_kind(doc, kind)
