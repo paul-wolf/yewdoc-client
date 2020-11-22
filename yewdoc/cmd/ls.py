@@ -8,30 +8,20 @@ from .. import shared
 @click.argument("name", required=False)
 @click.option("--info", "-l", is_flag=True, required=False)
 @click.option("--humanize", "-h", is_flag=True, required=False)
-@click.option("--encrypted", "-e", is_flag=True, required=False)
+@click.option("--exact", "-e", is_flag=True, required=False)
 @click.option("--tags", "-t", required=False)
 @click.option("--sort", "-s", is_flag=True, required=False)
 @click.option("--size", "-S", is_flag=True, required=False)
 @click.option("--descending", "-d", is_flag=True, required=False)
 @click.pass_context
-def ls(ctx, name, info, humanize, encrypted, tags, sort, size, descending):
+def ls(ctx, name, info, humanize, exact, tags, sort, size, descending):
     """List documents."""
     yew = ctx.obj["YEW"]
 
-    tag_objects = []
-    if tags:
-        tag_objects = yew.store.parse_tags(tags)
-    else:
-        # check for context
-        current_tag_context = yew.store.prefs.get_user_pref("tag_context")
-        if current_tag_context:
-            tag_objects = [yew.store.get_tag(current_tag_context)]
-            click.echo("Current tag context: %s" % str(tag_objects[0]))
-    if name:
-        docs = yew.store.search_names(name, encrypted=encrypted)
-    else:
-        docs = yew.store.get_docs(tag_objects=tag_objects, encrypted=encrypted)
-
+    tags = tags.split(",") if tags else list()
+    docs = yew.store.get_docs(name_frag=name, tags=tags, exact=exact)
+    if not docs:
+        return
     if sort or size or descending:
         if size:
             docs.sort(key=lambda doc: doc.size, reverse=descending)
@@ -77,7 +67,6 @@ def ls(ctx, name, info, humanize, encrypted, tags, sort, size, descending):
                 click.echo(" (E)", nl=False)
             else:
                 click.echo("    ", nl=False)
-
 
         click.echo(doc.name, nl=False)
         if info:

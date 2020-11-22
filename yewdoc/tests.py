@@ -160,6 +160,19 @@ class TestYewdocsClient(unittest.TestCase):
         assert "location" in result.output
         assert "kind" in result.output
         assert "size" in result.output
+        
+    def test_rename_document(self):
+        name_old = "test rename document"
+        name_new = "renamed document name"
+        doc = self.create_document(name_old)
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, [f"--user={TEST_USERNAME}", "rename", name_old, name_new]
+        )
+        assert result.exit_code == 0
+        renamed = self.store.get_doc(doc_uid)
+        assert renamed.name == name_new
+
 
     def test_ls_document(self):
         self.create_document("first doc", content="dummy")

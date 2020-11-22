@@ -5,18 +5,8 @@ import click
 from .store import YewStore
 from .remote import OfflineException, Remote, RemoteException
 from .utils import (
-    bcolors,
-    delete_directory,
-    err,
-    get_sha_digest,
-    get_short_uid,
-    is_binary_file,
-    is_binary_string,
     is_short_uuid,
     is_uuid,
-    modification_date,
-    slugify,
-    to_utc,
 )
 
 
@@ -71,7 +61,7 @@ def document_menu(docs, multiple=False):
     if not len(docs):
         return None
     for index, doc in enumerate(docs):
-        click.echo("%s) %s" % (index, doc.name))
+        click.echo(f"{index}) {doc.name} ({doc.short_uid()})")
     if multiple:
         v = click.prompt("Select document")
         index_list = parse_ranges(v)
@@ -119,7 +109,7 @@ def get_document_selection(ctx, name, list_docs, multiple=False):
             return docs[0]
         return document_menu(docs, multiple)
     elif name:
-        docs = yew.store.search_names(name)
+        docs = yew.store.get_docs(name_frag=name)
         if len(docs) == 1:
             return docs[0]
         return document_menu(docs, multiple)

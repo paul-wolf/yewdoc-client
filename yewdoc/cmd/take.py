@@ -50,7 +50,7 @@ def take(ctx, path, kind, force, symlink):
     # the behaviour we want is for the user to continuously
     # ingest the same file that might be updated out-of-band
     # TODO: handle multiple titles of same name
-    docs = yew.store.search_names(title, exact=True)
+    docs = yew.store.get_docs(name_frag=title, exact=True)
     if docs and not symlink:
         if len(docs) >= 1:
             if not force:

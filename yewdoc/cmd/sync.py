@@ -10,6 +10,7 @@ from .. import shared
 from ..remote import Remote, OfflineException, RemoteException, RemoteStatus, STATUS_MSG
 from ..document import deserialize
 
+
 def pdoc(doc, status, verbose):
     """Print status to stdout."""
 
@@ -40,6 +41,7 @@ def remote_doc_status(doc, remote_index) -> RemoteStatus:
         return RemoteStatus.STATUS_REMOTE_NEWER
 
     return RemoteStatus.STATUS_UNKNOWN
+
 
 @shared.cli.command()
 @click.argument("name", required=False)
@@ -95,7 +97,7 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
     for doc in docs_local:
         try:
             c = remote_doc_status(doc, remote_index)
-            remote_done.append(doc.uid)            
+            remote_done.append(doc.uid)
             if c == RemoteStatus.STATUS_REMOTE_SAME:
                 pdoc(doc, c, v)
                 continue
@@ -116,9 +118,7 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
                 if status_code == 200:
                     pdoc(doc, c, v)
                 else:
-                    click.secho(
-                        f"push failed: {doc}, {status_code}", fg="red"
-                    )
+                    click.secho(f"push failed: {doc}, {status_code}", fg="red")
 
                 remote_done.append(doc.uid)
                 continue
@@ -149,7 +149,6 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
             print(f"An error occured trying to sync {doc}")
             traceback.print_exc()
     print("")
-    
 
     # if we chose to update a single doc, we are done, no tag updates or anything else
     # because remote_done won't have values for the follow step to make sense
@@ -161,9 +160,7 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
             continue
 
         if not fake and rdoc["uid"] not in deleted_index:
-            click.echo(
-                f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}"
-            )
+            click.echo(f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}")
             remote_doc = yew.remote.fetch_doc(rdoc["uid"])
             yew.store.import_document(
                 remote_doc["uid"],

@@ -32,4 +32,3 @@ def delete(ctx, name, list_docs, force):
     if d:
         for doc in docs:
             yew.store.delete_document(doc)
-

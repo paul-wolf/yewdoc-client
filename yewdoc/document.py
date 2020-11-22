@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import os
 import codecs
 
@@ -53,7 +53,36 @@ class Document(object):
     @property
     def is_symlink(self):
         return os.path.islink(self.path)
-    
+
+    def get_tag_index(self) -> List[str]:
+        """Read document tag index into list."""
+        path = os.path.join(self.directory_path, "__tags.json")
+        if not os.path.exists(path):
+            return list()
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.decoder.JSONDecodeError:
+            print(f"Could not get tag index. Check file: {path}")
+
+    def write_tag_index(self, tag_index: List[str]) -> None:
+        """Write list of tags."""
+        path = os.path.join(self.directory_path, "__tags.json")
+        with open(path, "wt") as f:
+            f.write(json.dumps(tag_index, indent=4))
+
+    def add_tag(self, tag: str) -> None:
+        """Add tag to document."""
+        tags = self.get_tag_index()
+        tags.append(tag)
+        self.write_tag_index(list(set(tags)))
+
+    def remove_tag(self, tag: str) -> None:
+        """Remove tag from document."""
+        tags = self.get_tag_index()
+        tags.remove(tag)
+        self.write_tag_index(list(set(tags)))
+
     def toggle_encrypted(self):
         """
         https://tools.ietf.org/html/rfc4880
@@ -129,7 +158,8 @@ class Document(object):
         click.echo("path     : %s" % self.path)
         click.echo("updated  : %s" % modification_date(self.get_path()))
         click.echo("encrypt  : %s" % self.is_encrypted())
-
+        click.echo("tags     : %s" % self.get_tag_index())
+        
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
 

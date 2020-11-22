@@ -16,10 +16,7 @@ def purge(ctx, name, list_docs, force):
 
     """
     yew = ctx.obj["YEW"]
-    if name:
-        docs = yew.store.search_names(name)
-    else:
-        docs = yew.store.get_docs()
+    docs = yew.store.get_docs(name_frag=name)
 
     docs = list(filter(lambda d: d.size == 0, docs))
     for doc in docs:

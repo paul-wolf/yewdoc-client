@@ -11,6 +11,7 @@ from requests.exceptions import ConnectionError
 
 from .constants import RemoteStatus, STATUS_MSG
 
+
 class RemoteException(Exception):
     """Custom exception for remote errors."""
 
@@ -181,8 +182,7 @@ class Remote(object):
             return None
         except Exception as e:
             print(e)
-                  
-            
+
     def doc_status(self, uid):
         """Return status: exists-same, exists-newer, exists-older, does-not-exist."""
 

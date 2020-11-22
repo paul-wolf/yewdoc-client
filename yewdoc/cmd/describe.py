@@ -17,5 +17,3 @@ def describe(ctx, name, list_docs, diff):
 
     if doc:
         doc.dump()
-
-    

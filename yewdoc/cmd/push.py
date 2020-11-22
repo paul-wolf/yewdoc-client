@@ -3,7 +3,8 @@ import sys
 import click
 
 from .. import shared
-from .. remote import RemoteStatus
+from ..remote import RemoteStatus
+
 
 @shared.cli.command()
 @click.pass_context

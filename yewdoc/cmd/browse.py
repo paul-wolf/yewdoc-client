@@ -42,11 +42,9 @@ def browse(ctx, name, template, list_docs, tags):
 
     input_formats = ["md", "rst"]
 
-    tag_objects = yew.store.parse_tags(tags) if tags else None
-    if name:
-        docs = yew.store.search_names(name)
-    else:
-        docs = yew.store.get_docs(tag_objects=tag_objects)
+    
+    tags = tags.split(",") if tags else list()
+    docs = yew.store.get_docs(name_frag=name, tags=tags)
 
     nav = ""
     for doc in docs:

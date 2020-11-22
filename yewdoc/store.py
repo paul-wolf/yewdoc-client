@@ -57,15 +57,18 @@ def read_document_index(user_directory) -> List:
             return json.load(f)
     except json.decoder.JSONDecodeError:
         print(f"Could not getting document index. Check file: {path}")
-        
 
-def match(frag, s):
+
+def match(frag, s, exact):
     """Match a search string frag with string s.
 
     This is how we match document titles/names.
 
     """
-    return re.search(frag, s, re.IGNORECASE)
+    if not exact:
+        return re.search(frag, s, re.IGNORECASE)
+    return re.match(f"^{frag}$", s)
+    
 
 
 def doc_from_data(store, data):
@@ -146,7 +149,7 @@ class YewStore(object):
         """Delete a document and its associated entities."""
 
         uid = doc.uid
-        
+
         # remove files from local disk
         path = doc.directory_path
         # sanity check
@@ -156,7 +159,7 @@ class YewStore(object):
         # unlink the document file because it might be a symlink
         # whatever method we use for deleting the dir tree might follow the link
         os.unlink(doc.path)
-        
+
         if os.path.exists(path):
             shutil.rmtree(path)
 
@@ -168,7 +171,7 @@ class YewStore(object):
         deleted_index = self.get_deleted_index()
         deleted_index.append(uid)
         self.write_deleted_index(deleted_index)
-        
+
     def change_doc_kind(self, doc, new_kind):
         """Change type of document.
 
@@ -185,19 +188,11 @@ class YewStore(object):
 
     def rename_doc(self, doc, new_name):
         """Rename document with name."""
-
+        old_name_path = doc.path
         doc.name = new_name
-        self.reindex_doc(doc)
-
-        return doc
-
-    def search_names(self, name_frag, exact=False, encrypted=False):
-        """Get docs with LIKE unless matching exactly."""
-        matching_docs = filter(lambda doc: match(name_frag, doc["title"]), self.index)
-        docs = list()
-        for data in matching_docs:
-            docs.append(doc_from_data(self, data))
-        return docs
+        new_name_path = doc.path
+        os.rename(old_name_path, new_name_path)
+        return self.reindex_doc(doc)
 
     def get_doc(self, uid):
         """Get a doc or throw exception."""
@@ -222,20 +217,43 @@ class YewStore(object):
         except json.decoder.JSONDecodeError:
             print(f"Could not get deleted document index. Check file: {path}")
 
-        
     def write_deleted_index(self, deleted_index) -> None:
         """Write list of deleted uids."""
         path = os.path.join(self.yew_dir, "deleted_index.json")
         with open(path, "wt") as f:
             f.write(json.dumps(deleted_index, indent=4))
 
-    def get_docs(self, tag_objects=[], encrypted=False) -> List[Document]:
+    def get_docs(
+            self,
+            name_frag: Optional[str] = None,
+            tags: Optional[List] = None,
+            exact=False,
+            encrypted=False,
+    ) -> List[Document]:
         """Get all docs using the index.
 
         Does not get remote.
 
         """
-        return [doc_from_data(self, data) for data in self.index]
+        # import ipdb; ipdb.set_trace()
+        if not name_frag and not tags:
+            return [doc_from_data(self, data) for data in self.index]
+
+        if name_frag:
+            matching_docs = filter(
+                lambda doc: match(name_frag, doc["title"], exact), self.index
+            )
+        else:
+            matching_docs = self.index
+        docs = list()
+        for data in matching_docs:
+            if tags:
+                doc_tags = data.get("tags", [])
+                if not bool(set(doc_tags) & set(tags)):
+                    continue
+
+            docs.append(doc_from_data(self, data))
+        return docs
 
     def verify_docs(self, prune=False) -> List:
         """Check that docs in the index exist on disk.
@@ -255,7 +273,7 @@ class YewStore(object):
             self.write_index()
         return missing_uids
 
-    def generate_doc_data(self):
+    def generate_doc_data(self, write=False):
         """This generates the index data by reading
         the directory of files for the given user name.
         In case the index.json is corrupted or missing.
@@ -279,21 +297,29 @@ class YewStore(object):
                                 "#",
                             )
                         )
+                        or f.name == "__tags.json"
+                        or f.name == "__folder.json"
                     ):
                         file_path = os.path.join(path, f.name)
                         with open(file_path, "rt") as fp:
                             digest = get_sha_digest(fp.read())
                         base, ext = os.path.splitext(f.name)
+                        doc = self.get_doc(uid_dir.name)
                         data.append(
                             {
                                 "uid": uid_dir.name,
                                 "title": base,
                                 "kind": ext[1:],
                                 "digest": digest,
+                                "tags": doc.get_tag_index(),
                             }
                         )
                         break
 
+        if write:
+            path = os.path.join(self.yew_dir, "index.json")
+            with open(path, "wt") as f:
+                f.write(json.dumps(data, indent=4))
         return data
 
     def generate_archive(self) -> str:
@@ -324,7 +350,7 @@ class YewStore(object):
 
         return doc
 
-    def reindex_doc(self, doc: Document) -> Document:
+    def reindex_doc(self, doc: Document, write_index_flag=True) -> Document:
         """Refresh index information.
 
         The doc object has new information not yet in the index.
@@ -334,7 +360,9 @@ class YewStore(object):
                 d["title"] = doc.name
                 d["kind"] = doc.kind
                 d["digest"] = doc.digest
-                self.write_index()
+                d["tags"] = doc.get_tag_index()
+                if write_index_flag:
+                    self.write_index()
                 break
 
         return doc
