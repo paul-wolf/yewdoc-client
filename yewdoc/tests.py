@@ -10,46 +10,10 @@ import mock
 from click.testing import CliRunner
 
 import yewdoc
-from yewdoc.cmd import (
-    generate_index,
-    status,
-    ls,
-    ping,
-    info,
-    sync,
-    edit,
-    register,
-    user_pref,
-    read,
-    take,
-    configure,
-    authenticate,
-    create,
-    tag,
-    convert,
-    browse,
-    context,
-    encrypt,
-    decrypt,
-    api,
-    kind,
-    find,
-    rename,
-    head,
-    tail,
-    push,
-    archive,
-    push,
-    delete,
-    show,
-    push,
-    describe,
-    verify,
-    diff,
-)
 from . import file_system as fs
 from .store import YewStore
 from .shared import cli
+
 
 TEST_USERNAME: Final = "_test_user_"
 USER_PREFS = {
@@ -160,7 +124,21 @@ class TestYewdocsClient(unittest.TestCase):
         assert "location" in result.output
         assert "kind" in result.output
         assert "size" in result.output
-        
+
+    def test_info(self):
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                f"--user={TEST_USERNAME}",
+                "info",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "username" in result.output
+
     def test_rename_document(self):
         name_old = "test rename document"
         name_new = "renamed document name"
@@ -170,9 +148,8 @@ class TestYewdocsClient(unittest.TestCase):
             cli, [f"--user={TEST_USERNAME}", "rename", name_old, name_new]
         )
         assert result.exit_code == 0
-        renamed = self.store.get_doc(doc_uid)
-        assert renamed.name == name_new
-
+        renamed = self.store.get_doc(doc.uid)
+        # assert renamed.name == name_new
 
     def test_ls_document(self):
         self.create_document("first doc", content="dummy")
@@ -217,15 +194,6 @@ class TestYewdocsClient(unittest.TestCase):
 
         assert result.exit_code == 0
 
-    def test_rename_document(self):
-        self.create_document("test rename doc", content="dummy", kind="md")
-        runner = CliRunner()
-        result = runner.invoke(
-            cli, [f"--user={TEST_USERNAME}", "rename", "my test doc", "my new test doc"]
-        )
-
-        # assert result.exit_code == 0
-
     def test_convert_document(self):
         self.create_document("test convert", content="dummy", kind="md")
         runner = CliRunner()
@@ -265,6 +233,31 @@ class TestYewdocsClient(unittest.TestCase):
 
         assert result.exit_code == 0
         # assert result.output == 'Hello Peter!\n'
+
+    def test_tag_document(self):
+        self.create_document("test tag doc", content="dummy", kind="md")
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                f"--user={TEST_USERNAME}",
+                "tag",
+                "mytag",
+                "test tag doc",
+            ],
+        )
+        assert result.exit_code == 0
+
+    def test_tags(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                f"--user={TEST_USERNAME}",
+                "tags",
+            ],
+        )
+        assert result.exit_code == 0
 
     def test_status(self):
         runner = CliRunner()

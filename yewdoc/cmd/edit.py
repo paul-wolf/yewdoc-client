@@ -4,6 +4,7 @@ import os
 import click
 
 from .. import shared
+from .. import crypt
 
 
 @shared.cli.command()
@@ -54,7 +55,7 @@ def edit(ctx, name, list_docs, open_file, gpghome):
 
     encrypted = doc.check_encrypted()
     if encrypted:
-        decrypt_file(doc.get_path(), email, gpghome)
+        crypt.decrypt_file(doc.get_path(), email, gpghome)
     if open_file:
         # send to host os to ask it how to open file
         click.launch(doc.get_path())
@@ -62,7 +63,7 @@ def edit(ctx, name, list_docs, open_file, gpghome):
         click.edit(editor="emacs", require_save=True, filename=doc.path)
 
     if encrypted:
-        encrypt_file(doc.get_path(), email, gpghome)
+        crypt.encrypt_file(doc.get_path(), email, gpghome)
 
     # yew.store.prefs.put_user_pref("current_doc", doc.uid)
     # yew.store.prefs.update_recent(doc)

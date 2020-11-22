@@ -146,7 +146,7 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
             else:
                 raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
         except Exception as e:
-            print(f"An error occured trying to sync {doc}")
+            print(f"An error occured trying to sync {doc}: {e}")
             traceback.print_exc()
     print("")
 
@@ -168,7 +168,10 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
                 remote_doc["kind"],
                 remote_doc["content"],
             )
-
+    tags = yew.remote.pull_tags()
+    print(tags)
+    tag_docs = yew.remote.pull_tag_associations()
+    print(tag_docs)
     if False:
         r = yew.remote.push_tag_associations()
         if not r.status_code == 200:

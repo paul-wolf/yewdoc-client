@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Handle storing documents on the local disk. 
+Handle storing documents on the local disk.
 
-This module knows nothing about potential remote storage and syncing. 
+This module knows nothing about potential remote storage and syncing.
 
 When loaded, we read a json document that describes all available docs, the index.
 
-The index can be generated from the document directory. 
+The index can be generated from the document directory.
 
 """
 
@@ -68,7 +68,6 @@ def match(frag, s, exact):
     if not exact:
         return re.search(frag, s, re.IGNORECASE)
     return re.match(f"^{frag}$", s)
-    
 
 
 def doc_from_data(store, data):
@@ -224,11 +223,11 @@ class YewStore(object):
             f.write(json.dumps(deleted_index, indent=4))
 
     def get_docs(
-            self,
-            name_frag: Optional[str] = None,
-            tags: Optional[List] = None,
-            exact=False,
-            encrypted=False,
+        self,
+        name_frag: Optional[str] = None,
+        tags: Optional[List] = None,
+        exact=False,
+        encrypted=False,
     ) -> List[Document]:
         """Get all docs using the index.
 

@@ -17,7 +17,7 @@ def attach(ctx, name, path, list_docs):
     The filename will be stripped of spaces.
 
     """
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     if not os.path.exists(path) or not os.path.isfile(path):
         click.echo("file does not exist: %s" % path)
         sys.exit(1)

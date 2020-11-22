@@ -4,6 +4,7 @@ import json
 import os
 from typing import Optional
 
+import click
 import dateutil
 import dateutil.parser
 import requests

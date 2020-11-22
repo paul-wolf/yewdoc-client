@@ -1,5 +1,6 @@
 import os
 
+import humanize as h
 import click
 from .. import shared
 
@@ -28,9 +29,7 @@ def ls(ctx, name, info, humanize, exact, tags, sort, size, descending):
     else:
         docs.sort(key=lambda doc: doc.updated, reverse=descending)
 
-    data = []
     for doc in docs:
-        # data.append(doc.serialize(no_content=True))
         if info:
             if doc.is_link():
                 click.echo("ln ", nl=False)

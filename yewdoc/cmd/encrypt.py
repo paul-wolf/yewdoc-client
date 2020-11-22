@@ -3,6 +3,7 @@ import sys
 import click
 
 from .. import shared
+from .. import crypt
 
 
 @shared.cli.command()
@@ -18,7 +19,7 @@ from .. import shared
 @click.pass_context
 def encrypt(ctx, name, list_docs, gpghome):
     """Encrypt a document."""
-
+    yew = ctx.obj["YEW"]
     doc = shared.get_document_selection(ctx, name, list_docs)
 
     # if doc is null, we didn't find one, ask if we should create:
@@ -28,7 +29,7 @@ def encrypt(ctx, name, list_docs, gpghome):
     email = yew.store.prefs.get_user_pref("location.default.email")
 
     # try to encrypt in place
-    encrypt_file(doc.get_path(), email, gpghome)
+    crypt.encrypt_file(doc.get_path(), email, gpghome)
 
     yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)

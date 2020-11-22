@@ -20,7 +20,7 @@ except Exception:
 @click.pass_context
 def convert(ctx, name, destination_format, destination_file, list_docs, formats):
     """Convert to destination_format and print to stdout or save to file if provided."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     if formats or not destination_format:
         formats = pypandoc.get_pandoc_formats()
         click.echo("Input formats:")

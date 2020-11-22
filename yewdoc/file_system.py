@@ -1,5 +1,6 @@
 import os
 from os.path import expanduser
+import configparser
 
 DEFAULT_USERNAME = "yewser"
 STORAGE_DIR = ".yew.d"

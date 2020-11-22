@@ -3,13 +3,20 @@ import json
 import sys
 import datetime
 from os.path import expanduser
+from collections import namedtuple
 
 import glom
 import click
 import dateutil
+import gnupg
 
 from .. import shared
 from ..settings import USER_PREFERENCES
+
+try:
+    import pypandoc
+except Exception:
+    print("pypandoc won't load; convert cmd will not work")
 
 
 @shared.cli.command()
@@ -48,15 +55,16 @@ def info(ctx):
         if r is not None and r.status_code == 200:
             print(f"remote: {r.content.decode()}")
         else:
-            print(f"remote: {f}")
+            print(f"remote: {r}")
     except Exception as e:
         print(f"remote error: {e}")
     print(f"Encryption: {email}")
     print(f"gnupg dir: {yew.store.get_gnupg_exists()}")
     if yew.store.get_gnupg_exists():
+        gpg = gnupg.GPG(gnupghome="/path/to/home/directory")
         Args = namedtuple("Args", "gpg_dir")
         args = Args(gpg_dir=".gnupg")
-        keys = list_keys(args)
+        keys = gpg.list_keys(args)
         print("Public keys")
         for public_key in keys[0]:
             for uid in public_key["uids"]:

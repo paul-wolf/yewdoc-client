@@ -11,6 +11,6 @@ from .. import shared
 @click.pass_context
 def tail(ctx, name, list_docs):
     """Send end of document to stdout."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     doc = shared.get_document_selection(ctx, name, list_docs)
     click.echo(doc.get_content()[-250:])

@@ -1,3 +1,4 @@
+import sys
 import difflib
 
 import click
@@ -8,7 +9,7 @@ from .utils import (
     is_short_uuid,
     is_uuid,
 )
-
+from .actions import ACTION_HANDLERS
 
 __version__ = "0.2.0"
 __author__ = "Paul Wolf"
@@ -25,6 +26,7 @@ class YewCLI(object):
     def __init__(self, username=None):
         self.store = YewStore(username=username)
         self.remote = Remote(self.store)
+        self.actions = ACTION_HANDLERS
 
 
 @click.group()

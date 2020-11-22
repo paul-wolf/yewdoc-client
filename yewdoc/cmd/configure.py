@@ -3,9 +3,10 @@ import sys
 import click
 
 from .. import shared
+from .. import settings
 
 
-def _configure():
+def _configure(yew):
     """Prompt user for settings necessary for remote operations.
 
     Store in user prefs.
@@ -29,5 +30,4 @@ def _configure():
 @click.pass_context
 def configure(ctx):
     """Get configuration information from user."""
-    yew = ctx.obj["YEW"]
-    _configure()
+    _configure(ctx.obj["YEW"])

@@ -5,6 +5,7 @@ import codecs
 
 import click
 
+
 from .utils import (
     get_sha_digest,
     modification_date,
@@ -32,15 +33,6 @@ class Document(object):
         self.name = name
         self.kind = kind
         self.encrypt = encrypt
-
-    @property
-    def path(self):
-        return os.path.join(
-            self.store.yew_dir,
-            self.store.location,
-            self.uid,
-            f"{self.name}.{self.kind}",
-        )
 
     @property
     def directory_path(self):
@@ -159,7 +151,7 @@ class Document(object):
         click.echo("updated  : %s" % modification_date(self.get_path()))
         click.echo("encrypt  : %s" % self.is_encrypted())
         click.echo("tags     : %s" % self.get_tag_index())
-        
+
     def get_last_updated_utc(self):
         return modification_date(self.get_path())
 

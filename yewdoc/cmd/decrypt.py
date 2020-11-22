@@ -3,6 +3,7 @@ import sys
 import click
 
 from .. import shared
+from .. import crypt
 
 
 @shared.cli.command()
@@ -29,8 +30,7 @@ def decrypt(ctx, name, list_docs, gpghome):
     email = yew.store.prefs.get_user_pref("location.default.email")
 
     # try to decrypt in place
-    decrypt_file(doc.get_path(), email, gpghome)
+    crypt.decrypt_file(doc.get_path(), email, gpghome)
 
-    yew.remote.push_doc(yew.store.get_doc(doc.uid))
     yew.store.prefs.put_user_pref("current_doc", doc.uid)
     yew.store.update_recent("yewser", doc)

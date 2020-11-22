@@ -11,7 +11,7 @@ from .. import shared
 @click.pass_context
 def diff(ctx, name1, name2):
     """Compare two documents."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     doc1 = shared.get_document_selection(ctx, name1, list_docs=False)
     doc2 = shared.get_document_selection(ctx, name2, list_docs=False)
     """Compare two documents."""

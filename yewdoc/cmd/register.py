@@ -1,9 +1,12 @@
 import sys
 import os
+import json
 
 import click
+from strgen import StringGenerator as SG
 
 from .. import shared
+from .configure import _configure
 
 
 @shared.cli.command()
@@ -12,7 +15,7 @@ def register(ctx):
     """Try to setup a new user account on remote."""
     yew = ctx.obj["YEW"]
     # first make sure we are configured
-    _configure()
+    _configure(yew)
 
     # next make sure we have a connection to the server
     if not yew.remote.unauthenticated_ping():

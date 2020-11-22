@@ -12,8 +12,7 @@ from .. import shared
 @click.pass_context
 def describe(ctx, name, list_docs, diff):
     """Show document details."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     doc = shared.get_document_selection(ctx, name, list_docs)
-
     if doc:
         doc.dump()

@@ -11,6 +11,6 @@ from .. import shared
 @click.pass_context
 def head(ctx, name, list_docs):
     """Send start of document to stdout."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     doc = shared.get_document_selection(ctx, name, list_docs)
     click.echo(doc.get_content()[:250])

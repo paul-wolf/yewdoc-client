@@ -42,7 +42,6 @@ def browse(ctx, name, template, list_docs, tags):
 
     input_formats = ["md", "rst"]
 
-    
     tags = tags.split(",") if tags else list()
     docs = yew.store.get_docs(name_frag=name, tags=tags)
 

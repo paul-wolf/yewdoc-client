@@ -12,6 +12,6 @@ from .. import shared
 @click.pass_context
 def path(ctx, name, list_docs):
     """Show local disk path for document."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     doc = shared.get_document_selection(ctx, name, list_docs)
     click.echo(doc.path)
