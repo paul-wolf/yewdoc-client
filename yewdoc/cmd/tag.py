@@ -1,8 +1,25 @@
 import sys
+from collections import defaultdict
 
 import click
 
 from .. import shared
+
+def print_tags(store, tagname):
+    stats = defaultdict(int)
+    tagged_count = 0
+    for data in store.index:
+        doc_tags = data.get("tags", list())
+        if doc_tags:
+            tagged_count += 1
+        for t in doc_tags:
+            stats[t] += 1
+    print(f"Total tagged docs: {tagged_count}")
+    for k, v in stats.items():
+        if tagname and k != tagname:
+            continue
+        print(f"{k}: {v}")
+
 
 
 @shared.cli.command()
@@ -18,7 +35,7 @@ from .. import shared
 )
 @click.pass_context
 def tag(ctx, tagname, docname, list_docs, untag):
-    """Manage tags.
+    """Assign tags.
 
     Use this command to create tags, associate them with documents and
     remove tags.
@@ -28,6 +45,9 @@ def tag(ctx, tagname, docname, list_docs, untag):
     """
     yew = ctx.obj["YEW"]
 
+    if not docname:
+        print_tags(yew.store, tagname)
+        return
     docs = shared.get_document_selection(ctx, docname, list_docs, multiple=True)
     if not isinstance(docs, list):
         docs = [docs]

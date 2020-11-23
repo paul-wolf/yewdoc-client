@@ -30,7 +30,8 @@ markdown, conf, etc. It offers these features:
 * Integration with other command line utilities: as just another shell
   utility, you can do normal shell piping in and out, grep, etc.
 
-* GPG encryption: documents can be easily encrypted/decrypted.
+
+Think of it as a command line note taking application. 
 
 The target users are those who prefer to work on the command line
 without the overhead of switching back and forth between a shell and
@@ -52,7 +53,7 @@ and shell editor. You can just as well use Sublime, Atom or other
 non-console interfaces for editing Yewdocs documents.
 
 It's possible to maintain text documents on a server and sync to any
-local device that supports Python (>= 3.4) and one of the common *nix
+local device that supports Python (>= 3.6) and one of the common *nix
 shells.
 
 You can edit and manage any kind of text file, txt, rst, md, conf,
@@ -63,7 +64,7 @@ convert a file to another format after creating it.
 Installation
 ============
 
-Yewdocs works with Python >= 3.4
+Yewdocs works with Python >= 3.6
 
 Make sure you have Python3 installed. Make sure you have pip3 working. 
 
@@ -143,10 +144,6 @@ List all your documents:
 
     yd ls
 
-List all documents on the server (if you are using the Yewdocs server):
-
-    yd ls -r
-
 Sync your documents to/from a Yewdocs server:
 
     yd sync
@@ -169,16 +166,15 @@ location of the tmux file to edit it:
 But, of course, great care must be taken to not forget that you are
 not working on a copy but the file itself.
 
+We don't sync from remote to a symlinked file. That means, local
+symlinked files will not be overwritten from remote. This is to
+prevent unintential changes to local files.
 
 Tags
 ====
 
 You can create tags and associate them with documents for making file
 organisation and publishing easier.
-
-Create a tag:
-
-    yd tag -c red
 
 Assign the 'red' tag to the doc 'foo':
 
@@ -198,8 +194,52 @@ How many documents with the foo tag:
 
 List all tags:
 
-    yd tag
+    yd tags
 
+Backing up Your Data
+====================
+
+There are many ways to backup data:
+
+* rsync the data directory (~/.yew.d). 
+
+* Use an online file replication service, like Dropbox
+
+* Use the RESTful remote that is built in or an alternative remote. 
+
+* Use the archive command
+
+
+The archive command: 
+
+    yd archive
+    
+will create a tgz file in the local directory with all documents. You can then put this somewhere safe or 
+
+Exporting Documents
+===================
+
+You can create MS Word, PDF, HTML or other types of documents from your text documents. 
+
+    yd convert foo docx
+    
+will create a file in the current directory called: 'foo.docx'. 
+
+It supports whatever pandoc supports. Type:
+
+    yd convert 
+    
+To see a list of supported formats. 
+
+For PDF, you'll need to also install pdflatext in addition to pandoc: 
+
+<https://www.latex-project.org/get/>
+
+On macos:
+
+    brew cask install mactex
+
+eval "$(/usr/libexec/path_helper)"
 
 Specifying Documents
 ====================
@@ -239,9 +279,13 @@ I can also use a part of the title:
 
 If more than one title has the string `project`, it will provide a list to choose from.
 
-Or use the full id:
+Use the id to be very exact:
 
     yd describe 3ccc3fcc-5acc-11e5-b07d-ac87a33b7daa
+    
+or the short id:
+
+    yd describe 3ccc3fcc
 
 
 Local Web Browser
@@ -260,102 +304,76 @@ where `my_template.j2` is a Jinja template
 (http://jinja.pocoo.org/). Without this the default template is
 used. This has a left sidebar for navigating documents.
 
-Encryption
-==========
-
-Encrypt a document:
-
-    yd encrypt foo
-
-Decrypt a document:
-
-    yd decrypt foo
-
-If you have remote cloud storage activated, the encrypted document is
-sent to the remote. Check all encrypted documents:
-
-    yd ls -l --encrypted
-    ee608edc      md          569   2019-02-17 09:49:55 (E)test
-    19128186      md          561   2019-02-17 10:03:20 (E)foo
-
-Note the `(E)` indicating the document is encrypted. Some notes about this feature:
-
-* Your gpg home directory defaults to `.gnupg`. Use the --gpghome
-  option to change it. The specification of the home directory is only
-  good for the one invocation. You would need to provide it again
-  while decrypting.
-
-* The key identity is chosen by your registered email. Therefore, this
-  might not work if you are not registered with the remote cloud
-  server. Just set this manually:
-
-    yd user-pref location.default.email joe.bloggs@whatever.com
-
-The email must be one used for generating a key in your default or
-specified gnupg directory.
-
-* We pass the encryption/decryption commands to gpg without
-  regard to what kind of keys you have (length, encryption standard,
-  etc.)
-
-* Only the contents are encrypted. Title, tags and some other meta
-  data are not encrypted.
-
-* When a document is encrypted, it is done in-place. So, locally,
-  there is no longer an unencrypted version. This means if you lose
-  the keys, you won't be able to access the encrypted content. If you
-  are on the remote cloud server, the encrypted file will be there but
-  likewise will be permanently encrypted in this case.
-
-* Obviously, there is no way to view the unencrypted file via the web
-  site (if you use that) as keys are never touched in any way other
-  than to carry out local encryption/decryption operations.
-
-* If you use the remote service and you have made changes in the past,
-  your history of changes on the remote service will be deleted for a
-  document that you encrypt locally. This is to prevent unintentially
-  leaving unencrypted information on the remote that you think is not
-  available.
-
-* If you call the decrypt operation on an encrypted file, it encrypts
-  it again. You'll need to decrypt twice (as many times as you
-  encrypted) to get the original content back.
-
-If you want to see what keys will be used for encryption:
-
-    yd info
-
-This will output some generally useful information but also
-information about which keys will be used. Currently, it will assume
-`.gnupg` as home directory.
-
-To use encryption safely, you need to be aware of numerous things that
-are out of scope for this document and Yewdocs, like safe key
-generation and safe key storage. Encrypting a file in-place is not a
-guarantee that a technical forensic operation could not possibly
-retrieve unencrypted content with possession of the host. Yewdocs
-assumes here that the encrypted documents are on the same filesystems
-as your keys. Are your keys protected by a passphrase? Is it reallly
-safe to have keys in the same place as encrypted data? All of these
-issues are the user's responsibility.
 
 Users and Configuration
 =======================
 
-Yewdocs implements its own users. These are not the same as either the local system user nor the remote Yewdocs user. In `~/.yew.d/` you'll find one or more user names. You can setup new users any time with the `--user` parameter that comes right after `yd`:
+Yewdocs implements its own users. These are not the same as either the
+local system user nor the remote Yewdocs user. In `~/.yew.d/` you'll
+find one or more user names. You can setup new users any time with the
+`--user` parameter that comes right after `yd`:
 
     yd --user paul ls -l
 
-Use this immediately after `yd` and the command will use that user context. Yewdocs tries to get the user via several means:
+Use this immediately after `yd` and the command will use that user
+context. Yewdocs tries to get the user via several means:
 
+* user the current operating system user
 * check for `--user`
-* check for environemnt: YEWDOC_USER
+* check for environment: YEWDOC_USER
 * check for a config file called `~/.yew` that has this:
 
     [Yewdoc]
     username = yewser
 
 where `yewser` is the desired username. 
+
+Some Technical Details
+======================
+
+The files are all kept in a directory: `~/.yew.d/`. Assume we have a username of `yewser`:
+
+    ~/yew.d/yewser/default/
+
+`default` in this example refers to the "location". This is hard-coded
+at this time, but in future will support different remote settings.
+
+under `default` are all the document directories, one directory per
+document. Each document directory has the document with the
+appropriate text extension. There might be a media subdirectory if you
+have attached files to the document, `yd attach <filepath>`. In
+addition, there could be a file for holding tags associated with the
+document `__tags.json`.
+
+in the yewdoc user directory, `~/yew.d/yewser` in our example, there
+are at least two files:
+
+* index.json: an index of all the documents and tags
+
+* settings.json: user preferences
+
+The index.json is kept up to date whenever the user makes changes to
+documents, create, edit, tag, delete, etc. If this is corrupted
+somehow, it can be regenerated:
+
+    yd generate-index
+    
+This command can be invoked any time and the index.json will be
+replaced with a accurate version. settings.json however will need to
+be created from scratch however if it is deleted or lost. Add things
+to it with the `user-pref` command:
+
+    yd user-pref <name> <value>
+    
+Check preferences:
+
+    yd user-pref
+
+Most of these settings are set via the `yd configure` command. But you can change them via the `user-pref` command more directly:
+
+    yd user-pref location.default.first_name Paul
+
+Will change the first_name to Paul. These are generally only used to configure a remote. 
 
 
 
@@ -365,47 +383,50 @@ Overview of Commands
 For local files the following commands are available:
 
 ```
-attach       Take a file and put into media folder.
-browse       Convert to html and attempt to load in web...
-context      Set or unset a tag context filter for listings.
-convert      Convert to destination_format and print to...
-create       Create a new document.
-decrypt       Decrypt a document.
-delete       Delete a document.
-describe     Show document details.
-diff         Compare two documents.
-edit         Edit a document.
-encrypt      Encrypt a document.
-find         Search for spec in contents of docs.
-global_pref  Show or set global preferences.
-head         Send start of document to stdout.
-kind         Change kind of document.
-ls           List documents.
-read         Get input from stdin and either create a new...
-rename       Rename a document.
-show         Send contents of document to stdout.
-status       Print info about current setup.
-tag          Manage tags.
-tail         Send end of document to stdout.
-take         Import a file as a document.
-user_pref    Show or set global preferences.
-```
-
-Remote commands:
-
-```
-authenticate Authenticate with remote and get token.
-configure    Get configuration information from user.
-ping         Ping server.
-push         Push all documents to the server.
-register     Try to get a user account on remote.
-sync         Pushes local docs and pulls docs from remote.
-api          Get API of the server.
+  api             Get API of the server.
+  apply           List documents.
+  archive         Create tgz archive in the current directory of all...
+  attach          Take a file and put into media folder.
+  authenticate    Authenticate with remote and get token.
+  browse          Convert to html and attempt to load in web browser.
+  configure       Get configuration information from user.
+  context         Set or unset a tag context filter for listings.
+  convert         Convert to destination_format and print to stdout or save...
+  create          Create a new document.
+  decrypt         Decrypt a document.
+  delete          Delete a document.
+  describe        Show document details.
+  diff            Compare two documents.
+  edit            Edit a document.
+  encrypt         Encrypt a document.
+  find            Search for spec in contents of docs.
+  generate-index  Iterate document directory and output index json to...
+  head            Send start of document to stdout.
+  info            Provide configuration information.
+  kind            Change kind of document.
+  ls              List documents.
+  path            Show local disk path for document.
+  ping            Ping server.
+  purge           Delete documents of zero size.
+  push            Push all documents to the server.
+  read            Get input from stdin and either create a new document or...
+  register        Try to setup a new user account on remote.
+  rename          Rename a document.
+  rls             List documents.
+  show            Send contents of document to stdout.
+  status          Print info about current setup.
+  sync            Pushes local docs and pulls docs from remote.
+  tag             Manage tags.
+  tags            List all tags.
+  tail            Send end of document to stdout.
+  take            Import a file as a document.
+  user-pref       Show or set user preferences.
+  verify          Check docs exist.
 ```
 
 
 Yewdocs Server Configuration
-===========================
+============================
 
 No configuration is necessary to work locally without mirroring
 changes to the cloud (to a server through an internet connection):

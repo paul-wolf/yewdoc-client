@@ -12,7 +12,13 @@ from .. import shared
 @click.option("--tags", "-t", required=False)
 @click.pass_context
 def apply(ctx, action_name, name, exact, tags):
-    """List documents."""
+    """Apply an action to a document search.
+
+    Actions are in the subdirectory `actions`
+
+    The specified action is applied to each found document. 
+
+    """
     yew = ctx.obj["YEW"]
 
     tags = tags.split(",") if tags else list()

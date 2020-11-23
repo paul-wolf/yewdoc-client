@@ -1,4 +1,5 @@
 import sys
+import json
 
 import click
 
@@ -18,13 +19,9 @@ def user_pref(ctx, name, value):
 
     """
     yew = ctx.obj["YEW"]
-    print("user-pref, name={}, value={}".format(name, value))
-
     if name and not value:
         click.echo("%s = %s" % (name, yew.store.prefs.get_user_pref(name)))
     elif name and value:
         yew.store.prefs.put_user_pref(name, value)
     else:
-        for k in settings.USER_PREFERENCES:
-            v = yew.store.prefs.get_user_pref(k)
-            click.echo("%s = %s" % (k, v))
+        print(json.dumps(yew.store.prefs.data, indent=4))

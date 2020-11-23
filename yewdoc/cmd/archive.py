@@ -10,5 +10,5 @@ from .. import shared
 def archive(ctx):
     """Create tgz archive in the current directory of all documents and index and settings. """
     yew = ctx.obj["YEW"]
-    fn = yew.store.generate_archive()
-    print(f"Created archive: {fn}")
+    print(yew.store.generate_archive())
+

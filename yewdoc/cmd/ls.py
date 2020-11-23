@@ -7,7 +7,7 @@ from .. import shared
 
 @shared.cli.command()
 @click.argument("name", required=False)
-@click.option("--info", "-l", is_flag=True, required=False)
+@click.option("--info", "-l", required=False, count=True)
 @click.option("--humanize", "-h", is_flag=True, required=False)
 @click.option("--exact", "-e", is_flag=True, required=False)
 @click.option("--tags", "-t", required=False)
@@ -67,8 +67,8 @@ def ls(ctx, name, info, humanize, exact, tags, sort, size, descending):
             else:
                 click.echo("    ", nl=False)
 
-        click.echo(doc.name, nl=False)
-        if info:
-            click.echo("   ", nl=False)
-            # click.echo(slugify(doc.name), nl=False)
+        click.echo(click.style(doc.name, fg='green'), nl=False)
+        if info > 1:
+            click.echo("")
+            print(doc.get_content()[:250])
         click.echo("")
