@@ -68,9 +68,15 @@ def remote_doc_status(doc, remote_index) -> RemoteStatus:
     required=False,
     help="Comopare docs but take no action",
 )
+@click.option(
+    "--tags",
+    is_flag=True,
+    required=False,
+    help="Pull tags from server",
+)
 @click.option("--list_docs", "-l", is_flag=True, required=False)
 @click.pass_context
-def sync(ctx, name, force, prune, verbose, fake, list_docs):
+def sync(ctx, name, force, prune, verbose, fake, tags, list_docs):
     """Pushes local docs and pulls docs from remote.
 
     We don't overwrite newer docs.
@@ -168,34 +174,19 @@ def sync(ctx, name, force, prune, verbose, fake, list_docs):
                 remote_doc["kind"],
                 remote_doc["content"],
             )
-    tags = yew.remote.pull_tags()
-    print(tags)
+
+    # TODO: this all belongs in remote because it's specific to the REST remote
+    # which has a different way of handling tags
+    # and we are not pushing our tags
+    if not tags:
+        return 
+    remote_tags = yew.remote.pull_tags()
     tag_docs = yew.remote.pull_tag_associations()
-    print(tag_docs)
-    if False:
-        r = yew.remote.push_tag_associations()
-        if not r.status_code == 200:
-            click.secho(r.text, fg="red")
-        tags = yew.store.get_tags("")
-        if len(tags) > 0:
-            click.echo("syncing tags to server")
-            tag_data = {}
-            for tag in tags:
-                tag_data[tag.tagid] = tag.name
-
-            yew.remote.push_tags(tag_data)
-
-        # get tags from server
-        tags = yew.remote.pull_tags()
-        if tags:
-            click.echo("syncing tags from server")
-            for tagid, name in tags.items():
-                yew.store.sync_tag(tagid, name)
-
-        tag_docs = yew.remote.pull_tag_associations()
-        if tag_docs:
-            click.echo("syncing tag associations")
-            for tag_association in tag_docs:
-                tid = tag_association["tid"]
-                uid = tag_association["uid"]
-                yew.store.associate_tag(uid, tid)
+    print(f"Applying remote tags on local docs: {len(tag_docs)}")
+    for tag_doc in tag_docs:
+        tag_name = remote_tags[tag_doc["tid"]]
+        doc = yew.store.get_doc(tag_doc["uid"])
+        # print(f"{tag_name} => {doc}")
+        doc.add_tag(tag_name)
+        yew.store.reindex_doc(doc, write_index_flag=False)
+    yew.store.write_index()

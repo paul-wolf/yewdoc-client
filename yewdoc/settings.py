@@ -10,7 +10,7 @@ from . import file_system as fs
 """
 put user prefs in json in user dir:
 
-yew.d/yewser/preferences.json
+yew.d/<username>/settings.json
 
 """
 global_preferences = ["username", "offline"]

@@ -1,6 +1,7 @@
 import os
 from os.path import expanduser
 import configparser
+import getpass
 
 DEFAULT_USERNAME = "yewser"
 STORAGE_DIR = ".yew.d"
@@ -22,7 +23,7 @@ def get_username(username=None):
        from the caller.
        from the environment
        from a properties file ~/.yew
-       user the default constant 'yewser'
+       user the current os username
 
     """
 
@@ -43,7 +44,7 @@ def get_username(username=None):
         except Exception:
             pass
 
-    return username if username else DEFAULT_USERNAME
+    return username if username else getpass.getuser()
 
 
 def get_storage_root():
@@ -60,6 +61,7 @@ def get_user_directory(username=None):
 
     """
     home = expanduser("~")
+
     yew_dir = os.path.join(home, STORAGE_DIR, username or get_username())
     if not os.path.exists(yew_dir):
         os.makedirs(yew_dir)

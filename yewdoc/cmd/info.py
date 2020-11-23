@@ -4,6 +4,7 @@ import sys
 import datetime
 from os.path import expanduser
 from collections import namedtuple
+import getpass
 
 import glom
 import click
@@ -22,27 +23,32 @@ except Exception:
 @shared.cli.command()
 @click.pass_context
 def info(ctx):
+    """Provide configuration information."""
     yew = ctx.obj["YEW"]
 
     home = expanduser("~")
-    file_path = os.path.join(home, ".yew.d")
-    print(f"Python version: {sys.version}")
-    print(f"~/.yew.d exists: {os.path.exists(file_path)}")
-    print(f"YEWDOC_USER env: {os.getenv('YEWDOC_USER')}")
-    print(f"username: {yew.store.username}")
-    print(f"doc store: {yew.store.yew_dir}")
+    yew_dir_path = os.path.join(home, ".yew.d")
+    yew_path = os.path.join(home, ".yew")
+    v = sys.version.replace("\n", " ")
+    print(f"document count       : {yew.store.get_counts()}")
+    print(f"User                 : {yew.store.username}")
+    print(f"Python version       : {v}")
+    print(f"~/.yew exists        : {os.path.exists(yew_path)}")
+    print(f"~/.yew.d exists      : {os.path.exists(yew_dir_path)}")
+    print(f"YEWDOC_USER env      : {os.getenv('YEWDOC_USER')}")
+    print(f"username             : {yew.store.username}")
+    print(f"doc store            : {yew.store.yew_dir}")
 
-    print(f"documents={yew.store.get_counts()}")
     email = None
-    data = {yew.store.username: {}}
+    data = {}
 
     for k in USER_PREFERENCES:
         v = yew.store.prefs.get_user_pref(k)
-        data = glom.assign(data, f"{yew.store.username}.{k}", v, missing=dict)
+        data = glom.assign(data, f"{k}", v, missing=dict)
         if "password" not in k:
             if k == "location.default.email":
                 email = v
-            click.echo("%s = %s" % (k, v))
+            click.echo(f"{k.ljust(30)}: {v}")
     print(json.dumps(data, indent=4))
 
     try:
@@ -53,13 +59,13 @@ def info(ctx):
     try:
         r = yew.remote.ping()
         if r is not None and r.status_code == 200:
-            print(f"remote: {r.content.decode()}")
+            print(f"remote time: {r.content.decode()}")
         else:
             print(f"remote: {r}")
     except Exception as e:
         print(f"remote error: {e}")
-    print(f"Encryption: {email}")
-    print(f"gnupg dir: {yew.store.get_gnupg_exists()}")
+    print(f"Encryption  : {email}")
+    print(f"gnupg dir   : {yew.store.get_gnupg_exists()}")
     if yew.store.get_gnupg_exists():
         gpg = gnupg.GPG(gnupghome="/path/to/home/directory")
         Args = namedtuple("Args", "gpg_dir")

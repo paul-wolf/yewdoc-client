@@ -56,7 +56,7 @@ def read_document_index(user_directory) -> List:
         with open(path) as f:
             return json.load(f)
     except json.decoder.JSONDecodeError:
-        print(f"Could not getting document index. Check file: {path}")
+        print(f"Could not get document index. Check file: {path}")
 
 
 def match(frag, s, exact):
@@ -234,7 +234,6 @@ class YewStore(object):
         Does not get remote.
 
         """
-        # import ipdb; ipdb.set_trace()
         if not name_frag and not tags:
             return [doc_from_data(self, data) for data in self.index]
 
@@ -296,8 +295,7 @@ class YewStore(object):
                                 "#",
                             )
                         )
-                        or f.name == "__tags.json"
-                        or f.name == "__folder.json"
+                        or f.name.startswith("__")
                     ):
                         file_path = os.path.join(path, f.name)
                         with open(file_path, "rt") as fp:
@@ -327,7 +325,7 @@ class YewStore(object):
         tar_directory(self.yew_dir, archive_file_name)
         return archive_file_name
 
-    def index_doc(self, uid, name, kind) -> Document:
+    def index_doc(self, uid: str, name: str, kind: str) -> Document:
         """Enter document into db for the first time.
 
         We assume the document exists in the directory not the index.
