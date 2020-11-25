@@ -13,5 +13,7 @@ from .. import shared
 def path(ctx, name, list_docs):
     """Show local disk path for document."""
     # yew = ctx.obj["YEW"]
-    doc = shared.get_document_selection(ctx, name, list_docs)
-    click.echo(doc.path)
+    docs = shared.get_document_selection(ctx, name, list_docs)
+    if not docs:
+        sys.exit(1)
+    click.echo(doc[0].path)

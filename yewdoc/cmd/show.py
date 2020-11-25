@@ -13,9 +13,9 @@ def show(ctx, name, list_docs):
     """Send contents of document to stdout."""
     # yew = ctx.obj["YEW"]
 
-    doc = shared.get_document_selection(ctx, name, list_docs)
-    if doc:
-        click.echo(doc.get_content())
+    docs = shared.get_document_selection(ctx, name, list_docs)
+    if docs:
+        click.echo(docs[0].get_content())
     else:
         click.echo("no matching documents")
     sys.stdout.flush()

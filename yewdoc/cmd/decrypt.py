@@ -21,16 +21,16 @@ def decrypt(ctx, name, list_docs, gpghome):
     """Decrypt a document."""
     yew = ctx.obj["YEW"]
 
-    doc = shared.get_document_selection(ctx, name, list_docs)
+    docs = shared.get_document_selection(ctx, name, list_docs)
 
-    # if doc is null, we didn't find one, ask if we should create:
-    if not doc:
+
+    if not docs:
         sys.exit(0)
 
     email = yew.store.prefs.get_user_pref("location.default.email")
 
     # try to decrypt in place
-    crypt.decrypt_file(doc.get_path(), email, gpghome)
-
-    yew.store.prefs.put_user_pref("current_doc", doc.uid)
-    yew.store.update_recent("yewser", doc)
+    for doc in docs:
+        crypt.decrypt_file(doc.get_path(), email, gpghome)
+        # yew.store.prefs.put_user_pref("current_doc", doc.uid)
+        # yew.store.update_recent("yewser", doc)

@@ -42,17 +42,17 @@ def edit(ctx, name, list_docs, open_file, gpghome):
 
     """
     yew = ctx.obj["YEW"]
-    doc = shared.get_document_selection(ctx, name, list_docs)
+    docs = shared.get_document_selection(ctx, name, list_docs)
 
     # if doc is null, we didn't find one, ask if we should create:
-    if not doc:
+    if not docs:
         if click.confirm("Couldn't find that document, shall we create it?"):
             doc = yew.store.create_document(name, kind="md")
         else:
             sys.exit(0)
 
     email = yew.store.prefs.get_user_pref("location.default.email")
-
+    doc = docs[0]
     encrypted = doc.check_encrypted()
     if encrypted:
         crypt.decrypt_file(doc.get_path(), email, gpghome)

@@ -20,14 +20,15 @@ from .. import crypt
 def encrypt(ctx, name, list_docs, gpghome):
     """Encrypt a document."""
     yew = ctx.obj["YEW"]
-    doc = shared.get_document_selection(ctx, name, list_docs)
+    docs = shared.get_document_selection(ctx, name, list_docs)
 
     # if doc is null, we didn't find one, ask if we should create:
-    if not doc:
+    if not docs:
         sys.exit(0)
 
     email = yew.store.prefs.get_user_pref("location.default.email")
-
+    doc = docs[0]
+    
     # try to encrypt in place
     crypt.encrypt_file(doc.get_path(), email, gpghome)
 

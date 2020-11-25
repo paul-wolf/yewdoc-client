@@ -49,9 +49,6 @@ def tag(ctx, tagname, docname, list_docs, untag):
         print_tags(yew.store, tagname)
         return
     docs = shared.get_document_selection(ctx, docname, list_docs, multiple=True)
-    if not isinstance(docs, list):
-        docs = [docs]
-
     for doc in docs:
         if not untag:
             doc.add_tag(tagname)

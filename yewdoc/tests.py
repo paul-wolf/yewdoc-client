@@ -10,9 +10,9 @@ import mock
 from click.testing import CliRunner
 
 import yewdoc
-from . import file_system as fs
-from .store import YewStore
-from .shared import cli
+from yewdoc import file_system as fs
+from yewdoc.store import YewStore
+from yewdoc.shared import cli
 
 
 TEST_USERNAME: Final = "_test_user_"
@@ -165,7 +165,6 @@ class TestYewdocsClient(unittest.TestCase):
         assert result.exit_code == 0
         assert "first doc" in result.output
         lines = result.output.split("\n")
-        # default is for ordering descending date modified
         assert lines[0] == "first doc"
 
     def test_tail_document(self):

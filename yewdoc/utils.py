@@ -94,16 +94,21 @@ def delete_directory(folder):
     except Exception as e:
         print(e)
 
+def get_md5_digest(s, strip=False):
+    if strip:
+        s = s.rstrip()
+    s = s.encode("utf-8")
+    return hashlib.md5(s).hexdigest()
 
-def get_sha_digest(s):
+def get_sha_digest(s, strip=True):
     """Generate digest for s.
 
-    Trim final whitespace.
     Convert to byte string.
     Produce digest.
 
     """
-    s = s.rstrip()
+    if strip:
+        s = s.rstrip()
     s = s.encode("utf-8")
     return hashlib.sha256(s).hexdigest()
 

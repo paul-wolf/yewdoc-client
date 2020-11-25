@@ -22,8 +22,11 @@ def attach(ctx, name, path, list_docs):
         click.echo("file does not exist: %s" % path)
         sys.exit(1)
 
-    doc = shared.get_document_selection(ctx, name, list_docs)
-
+    docs = shared.get_document_selection(ctx, name, list_docs)
+    if not docs:
+        sys.exit(1)
+    doc = docs[0]
+    
     _, filename = os.path.split(path)
     dest_path = os.path.join(doc.get_media_path(), filename)
 

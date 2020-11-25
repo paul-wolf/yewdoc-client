@@ -22,8 +22,6 @@ def delete(ctx, name, list_docs, force):
     if not docs:
         click.echo("no matching documents")
         return
-    if not isinstance(docs, list):
-        docs = [docs]
     for doc in docs:
         click.echo("Document: %s  %s" % (doc.uid, doc.name))
     d = True

@@ -18,6 +18,7 @@ __license__ = "BSD"
 from .shared import cli
 from .cmd import (
     apply,
+    cp,
     generate_index,
     path,
     purge,

@@ -1,3 +1,5 @@
+backups
+tmp
 .mypy_cache
 .idea
 *.log

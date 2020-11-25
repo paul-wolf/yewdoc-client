@@ -60,7 +60,10 @@ def read(ctx, name, list_docs, location, kind, create, append):
     # if name, we want to either 1) create new file with that name
     # or 2) we want to append or replace an existing one
     if append:
-        doc = shared.get_document_selection(ctx, name, list_docs)
+        docs = shared.get_document_selection(ctx, name, list_docs)
+        if not docs:
+            sys.exit(1)
+        doc = docs[0]
 
     # get the type of file
     # we'll ignore this if appending

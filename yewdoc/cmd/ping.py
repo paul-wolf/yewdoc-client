@@ -17,8 +17,9 @@ def ping(ctx):
         print("No response")
         sys.exit(1)
     if r.status_code == 200:
-        print(r.content)
         sdt = dateutil.parser.parse(r.json())
+        if not sdt:
+            return 
         click.echo("Server time  : %s" % sdt)
         click.echo("Here time    : {}".format(datetime.datetime.now()))
         n = datetime.datetime.now()

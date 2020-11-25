@@ -17,11 +17,6 @@ from . import file_system as fs
 DOC_KINDS = ["md", "txt", "rst", "json"]
 
 
-def deserialize(store, data: Dict):
-    """Create a document from a dict."""
-    return Document(store, data["uid"], data["title"], data["kind"])
-
-
 class Document(object):
     """Describes a document."""
 
@@ -103,14 +98,22 @@ class Document(object):
         return slugify(self.name)
 
     def get_digest(self):
-        return get_sha_digest(self.get_content())
+        return self.store.digest_method(self.get_content())
 
     def get_basename(self):
         return self.name
 
-    def get_filename(self):
-        return "%s.%s" % (self.get_basename(), self.kind)
+    @property
+    def basename(self):
+        return self.get_basename()
 
+    def get_filename(self):
+        return f"{self.basename}.{self.kind}"
+
+    @property
+    def filename(self):
+        return self.get_filename()
+    
     def get_path(self):
         return os.path.join(
             self.store.yew_dir,

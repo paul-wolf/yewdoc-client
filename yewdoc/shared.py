@@ -1,42 +1,57 @@
 import sys
 import difflib
+from typing import List, Optional, Dict, Union
 
 import click
 
 from .store import YewStore
-from .remote import OfflineException, Remote, RemoteException
+from .remote import REMOTES
+from .remote import Remote
 from .utils import (
     is_short_uuid,
     is_uuid,
 )
 from .actions import ACTION_HANDLERS
+from .document import Document
 
 __version__ = "0.2.0"
 __author__ = "Paul Wolf"
 __license__ = "BSD"
 
 
-class YewCLI(object):
+class YewCLI:
     """Wraps two principle classes.
 
     We manage the store and remote objects.
 
     """
 
-    def __init__(self, username=None):
+    def __init__(self, username=None, debug=False):
+
         self.store = YewStore(username=username)
-        self.remote = Remote(self.store)
+        if debug:
+            print(f"***************** {self.store.username} ************")
+        remote_name = self.store.prefs.get_user_pref("remote")
+        if not remote_name:
+            remote_class = Remote
+        else:
+            remote_class = REMOTES[remote_name]
+        self.remote = remote_class(self.store)
         self.actions = ACTION_HANDLERS
+        if debug:
+            print(f"***************** {remote_class.__name__} ************")        
 
 
 @click.group()
 @click.option("--user", help="User name", required=False)
+@click.option("--debug", "-d", is_flag=True, help="Debug flag", required=False)
 @click.pass_context
-def cli(ctx, user):
+def cli(ctx, user, debug):
 
-    yew = YewCLI(username=user)
+    yew = YewCLI(username=user, debug=debug)
     ctx.ensure_object(dict)
     ctx.obj["YEW"] = yew
+    ctx.obj["DEBUG"] = debug
 
 
 def parse_ranges(s):
@@ -58,14 +73,19 @@ def parse_ranges(s):
     return range_list
 
 
-def document_menu(docs, multiple=False):
-    """Show list of docs. Return selection."""
+def document_menu(docs, multiple=False) -> List[Document]:
+    """Show list of docs. Return selection.
+
+    Multiple means use can provide a range otherwise, 
+    a list with a single doc is returned.
+    """
     if not len(docs):
-        return None
+        return list()
+    
     for index, doc in enumerate(docs):
         click.echo(f"{index}) {doc.name} ({doc.short_uid()})")
     if multiple:
-        v = click.prompt("Select document")
+        v = click.prompt("Select document. You can provide ranges.")
         index_list = parse_ranges(v)
         doc_list = []
         for i in index_list:
@@ -76,16 +96,17 @@ def document_menu(docs, multiple=False):
         v = click.prompt("Select document", type=int)
         if v not in range(len(docs)):
             print("Choice not in range")
-            sys.exit(1)
-    return docs[v]
+            return list()
+
+    return [docs[v]]
 
 
-def get_document_selection(ctx, name, list_docs, multiple=False):
+def get_document_selection(ctx, name, list_docs, tags=None, multiple=False) -> List[Document]:
     """Present lists or whatever to get doc choice.
 
     name (str): a title or partial title to use as search
     list_docs (bool): a flag to list documents are not.
-    ranges (bool): allow range of integers for a list selection?
+    multiple (bool): allow range of integers for a list selection
 
     If there is no name, show recent list.
     otherwise, show all docs
@@ -95,28 +116,33 @@ def get_document_selection(ctx, name, list_docs, multiple=False):
 
     """
     yew = ctx.obj["YEW"]
-
+    # import ipdb; ipdb.set_trace()
     if name and is_uuid(name):
-        return yew.store.get_doc(name)
+        return [yew.store.get_doc(name)]
 
     if name and is_short_uuid(name):
-        return yew.store.get_short(name)
+        return [yew.store.get_short(name)]
 
-    if not name and not list_docs:
+    if not name and not list_docs and not tags:
         docs = yew.store.get_recent(yew.store.username)
         return document_menu(docs, multiple)
     elif list_docs:
-        docs = yew.store.get_docs()
+        docs = yew.store.get_docs(name_frag=name, tags=tags)
         if len(docs) == 1:
-            return docs[0]
+            return docs
         return document_menu(docs, multiple)
-    elif name:
-        docs = yew.store.get_docs(name_frag=name)
+    elif name and not list_docs:
+        return yew.store.get_docs(name_frag=name, tags=tags)
+    elif name or tags:
+        docs = yew.store.get_docs(name_frag=name, tags=tags)
         if len(docs) == 1:
-            return docs[0]
-        return document_menu(docs, multiple)
+            return docs
+        if list_docs:
+            return document_menu(docs, multiple)
+        else:
+            return docs
 
-    return None
+    return list()
 
 
 def diff_content(doc1, doc2):

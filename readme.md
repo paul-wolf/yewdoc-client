@@ -239,7 +239,6 @@ On macos:
 
     brew cask install mactex
 
-eval "$(/usr/libexec/path_helper)"
 
 Specifying Documents
 ====================

@@ -12,5 +12,8 @@ from .. import shared
 def tail(ctx, name, list_docs):
     """Send end of document to stdout."""
     # yew = ctx.obj["YEW"]
-    doc = shared.get_document_selection(ctx, name, list_docs)
+    docs = shared.get_document_selection(ctx, name, list_docs)
+    if not docs:
+        sys.exit(1)
+    doc = docs[0]
     click.echo(doc.get_content()[-250:])

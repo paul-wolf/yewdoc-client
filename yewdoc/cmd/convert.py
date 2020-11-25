@@ -31,7 +31,10 @@ def convert(ctx, name, destination_format, destination_file, list_docs, formats)
             click.echo("\t" + f)
         sys.exit(0)
 
-    doc = shared.get_document_selection(ctx, name, list_docs)
+    docs = shared.get_document_selection(ctx, name, list_docs)
+    if not docs:
+        sys.exit(1)
+    doc = docs[0]
     click.echo(doc.name)
     click.echo(doc.kind)
     click.echo(destination_format)

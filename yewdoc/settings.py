@@ -34,7 +34,8 @@ def read_user_prefs(username) -> Dict:
     """
     path = os.path.join(fs.get_user_directory(username), "settings.json")
     if not os.path.exists(path):
-        raise Exception(f"Settings file not found at: {path}")
+        return {}
+        # raise Exception(f"Settings file not found at: {path}")
     with open(path) as f:
         data = json.load(f)
     return data
@@ -50,6 +51,7 @@ def write_user_prefs(username, data) -> None:
 class Preferences:
     def __init__(self, username: Optional[str] = None):
         self.username = username
+
         self.data = read_user_prefs(self.username)
 
     def get_user_pref(self, k):
