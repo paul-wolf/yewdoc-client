@@ -20,5 +20,6 @@ def tags(ctx):
         for t in doc_tags:
             stats[t] += 1
     print(f"Total tagged docs: {tagged_count}")
-    for k, v in stats.items():
-        print(f"{k}: {v}")
+
+    for k in sorted(stats):
+        print(f"{k}: {stats[k]}")

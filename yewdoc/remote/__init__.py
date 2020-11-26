@@ -4,7 +4,7 @@ from .s3remote import RemoteS3
 from .exceptions import OfflineException, RemoteException
 
 REMOTES = {
-    "RemoteDefault": Remote,
+    "RemoteREST": Remote,
     "RemoteS3": RemoteS3
 }
 

@@ -54,11 +54,11 @@ class Preferences:
 
         self.data = read_user_prefs(self.username)
 
-    def get_user_pref(self, k):
+    def get_user_pref(self, k, default=None):
         try:
             return glom.glom(self.data, k)
         except glom.core.PathAccessError:
-            return None
+            return default
 
     def put_user_pref(self, k, v):
         new_data = glom.assign(self.data, k, v, missing=dict)

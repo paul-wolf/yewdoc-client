@@ -31,11 +31,15 @@ class YewCLI:
         self.store = YewStore(username=username)
         if debug:
             print(f"***************** {self.store.username} ************")
-        remote_name = self.store.prefs.get_user_pref("remote")
+        remote_name = self.store.prefs.get_user_pref("location.default.remote_type")
         if not remote_name:
             remote_class = Remote
         else:
-            remote_class = REMOTES[remote_name]
+            try:
+                remote_class = REMOTES[remote_name]
+            except KeyError:
+                click.echo(f"Could not find {remote_name} as a remote type; choices are: {list(REMOTES.keys())}; check settings.")
+                sys.exit(1)
         self.remote = remote_class(self.store)
         self.actions = ACTION_HANDLERS
         if debug:

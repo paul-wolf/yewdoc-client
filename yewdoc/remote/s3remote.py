@@ -66,9 +66,9 @@ class RemoteS3(object):
     def __init__(self, store):
         self.store = store
         self.store.digest_method = utils.get_md5_digest
-        self.aws_access_key_id = store.prefs.get_user_pref("aws_access_key_id")
-        self.aws_secret_access_key = store.prefs.get_user_pref("aws_secret_access_key")
-        self.bucket = store.prefs.get_user_pref("s3_bucket")
+        self.aws_access_key_id = store.prefs.get_user_pref("location.default.aws_access_key_id")
+        self.aws_secret_access_key = store.prefs.get_user_pref("location.default.aws_secret_access_key")
+        self.bucket = store.prefs.get_user_pref("location.default.s3_bucket")
         try:
             self.s3 = s3fs.S3FileSystem(key=self.aws_access_key_id, secret=self.aws_secret_access_key)
         except Exception as e:
@@ -231,7 +231,7 @@ class RemoteS3(object):
         remote_done = []
         deleted_index = self.store.get_deleted_index()
         remote_index = self.list_docs()
-        print(json.dumps(remote_index, indent=4, default=str))
+        # print(json.dumps(remote_index, indent=4, default=str))
         for doc in docs_local:
             try:
                 c = remote_doc_status(doc, remote_index)
@@ -311,7 +311,7 @@ class RemoteS3(object):
         print(f"Applying remote tags on local docs: {len(tag_docs)}")
         for tag_doc in tag_docs:
             tag_name = remote_tags[tag_doc["tid"]]
-            doc = sekf.store.get_doc(tag_doc["uid"])
+            doc = self.store.get_doc(tag_doc["uid"])
             # print(f"{tag_name} => {doc}")
             doc.add_tag(tag_name)
             self.store.reindex_doc(doc, write_index_flag=False)
