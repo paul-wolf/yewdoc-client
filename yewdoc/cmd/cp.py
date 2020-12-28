@@ -1,6 +1,6 @@
 import os
 import sys
-import shutil 
+import shutil
 from pathlib import Path
 
 import click
@@ -19,12 +19,11 @@ from .. import shared
 def cp(ctx, name, destination, tags, list_docs=False, force=False, preserve=False):
     """Copy one or more docs to destination."""
     yew = ctx.obj["YEW"]
-    # import ipdb; ipdb.set_trace()
+    #  import ipdb; ipdb.set_trace()
     if name and not destination:
         destination = name
         name = None
-        
-    
+
     if not os.path.exists(destination):
         print("Cannot find {destination}")
         sys.exit(1)
@@ -33,11 +32,11 @@ def cp(ctx, name, destination, tags, list_docs=False, force=False, preserve=Fals
 
     tags = tags.split(",") if tags else list()
     docs = shared.get_document_selection(ctx, name, list_docs, tags, multiple=True)
-        
+
     if not force:
         for doc in docs:
             click.echo(doc.name)
-    
+
     if force or click.confirm("Copy documents to {destination}? "):
         for doc in docs:
             print(f"{doc.path} => {destination}")

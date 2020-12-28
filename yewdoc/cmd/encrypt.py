@@ -28,7 +28,7 @@ def encrypt(ctx, name, list_docs, gpghome):
 
     email = yew.store.prefs.get_user_pref("location.default.email")
     doc = docs[0]
-    
+
     # try to encrypt in place
     crypt.encrypt_file(doc.get_path(), email, gpghome)
 

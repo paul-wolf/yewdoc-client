@@ -26,7 +26,7 @@ def attach(ctx, name, path, list_docs):
     if not docs:
         sys.exit(1)
     doc = docs[0]
-    
+
     _, filename = os.path.split(path)
     dest_path = os.path.join(doc.get_media_path(), filename)
 

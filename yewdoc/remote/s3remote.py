@@ -19,17 +19,19 @@ from .exceptions import OfflineException, RemoteException
 from .. import shared
 from .. import utils
 
+
 class RemoteS3Response:
     def __init__(self, status_code=200, content="ok"):
         self.status_code = status_code
         self.content = content
-        
+
     def json(self):
         return json.loads(self.content)
-        
+
     def __str__(self):
         return f"({self.status_code}) {self.content}"
-        
+
+
 def pdoc(doc, status, verbose):
     """Print status to stdout."""
 
@@ -41,10 +43,12 @@ def pdoc(doc, status, verbose):
         msg = STATUS_MSG[status]
         click.echo(": ", nl=False)
         click.secho(msg, fg="yellow")
-        
+
+
 def remote_doc_entry(uid, remote_index) -> Optional[Dict]:
     docs = list(filter(lambda d: d["uid"] == uid, remote_index))
     return docs[0] if docs else None
+
 
 def remote_doc_status(doc_local, remote_index):
     doc_remote = remote_doc_entry(doc_local.uid, remote_index)
@@ -60,17 +64,24 @@ def remote_doc_status(doc_local, remote_index):
 
     return RemoteStatus.STATUS_UNKNOWN
 
+
 class RemoteS3(object):
     """Handles comms with server."""
 
     def __init__(self, store):
         self.store = store
         self.store.digest_method = utils.get_md5_digest
-        self.aws_access_key_id = store.prefs.get_user_pref("location.default.aws_access_key_id")
-        self.aws_secret_access_key = store.prefs.get_user_pref("location.default.aws_secret_access_key")
+        self.aws_access_key_id = store.prefs.get_user_pref(
+            "location.default.aws_access_key_id"
+        )
+        self.aws_secret_access_key = store.prefs.get_user_pref(
+            "location.default.aws_secret_access_key"
+        )
         self.bucket = store.prefs.get_user_pref("location.default.s3_bucket")
         try:
-            self.s3 = s3fs.S3FileSystem(key=self.aws_access_key_id, secret=self.aws_secret_access_key)
+            self.s3: Final = s3fs.S3FileSystem(
+                key=self.aws_access_key_id, secret=self.aws_secret_access_key
+            )
         except Exception as e:
             # this fails if we are here before credentials are completely setup
             print(e)
@@ -79,7 +90,7 @@ class RemoteS3(object):
     def digest_method(self):
         """Return the digest method needed for our remote store."""
         return utils.get_md5_digest
-    
+
     def check_data(self):
         if not self.bucket:
             raise RemoteException("s3_bucket user preference is required.")
@@ -92,12 +103,12 @@ class RemoteS3(object):
         """Rmote path. Only works if we have  local instance of doc."""
         doc = self.store.get_doc(uid)
         return f"{self.bucket}/{self.store.username}/{doc.uid}/{doc.filename}"
-    
+
     def local_path(self, uid):
-        """Local path. Only works if we have  local instance of doc."""        
+        """Local path. Only works if we have  local instance of doc."""
         doc = self.store.get_doc(uid)
         return doc.path
-        
+
     def delete(self, uid):
         """Perform delete on remote."""
         self.s3.delete(self.remote_path(uid))
@@ -113,13 +124,12 @@ class RemoteS3(object):
     def ping(self, timeout=3) -> RemoteS3Response:
         """Call remote ping() method."""
         self.check_data()
-        
+
         r = self.s3.ls(self.bucket)
         if len(r) == 0:
             # no docs yet
             r = datetime.datetime.now().isoformat()
         return RemoteS3Response(content=json.dumps(r))
-            
 
     def unauthenticated_ping(self):
         """Call remote ping() method."""
@@ -142,21 +152,22 @@ class RemoteS3(object):
             print(f"Could not find document: {remote_path}")
             return None
 
-
     def fetch_doc(self, remote_index_entry: Dict) -> Optional[Dict]:
         """Get a document from remote.
 
         But just return a dictionary. Don't make it local.
 
-        if we don't have the doc locally, we don't know what it's called. 
-        we'll need to scan the remote directory. 
+        if we don't have the doc locally, we don't know what it's called.
+        we'll need to scan the remote directory.
 
         """
         # import ipdb; ipdb.set_trace()
         uid = remote_index_entry["uid"]
         filename = f"{remote_index_entry['title']}.{remote_index_entry['kind']}"
-        remote_path = f"{self.bucket}/{self.store.username}/{uid}/{filename}"        
-        tmp_file = os.path.join(fs.get_tmp_directory(), remote_index_entry["uid"], filename)
+        remote_path = f"{self.bucket}/{self.store.username}/{uid}/{filename}"
+        tmp_file = os.path.join(
+            fs.get_tmp_directory(), remote_index_entry["uid"], filename
+        )
         if not os.path.exists(os.path.join(fs.get_tmp_directory(), uid)):
             os.makedirs(os.path.join(fs.get_tmp_directory(), uid))
         self.s3.get_file(remote_path, tmp_file)
@@ -188,7 +199,6 @@ class RemoteS3(object):
 
         return data
 
-
     def push_doc(self, doc, force=False) -> None:
         """Serialize and send document.
 
@@ -198,13 +208,11 @@ class RemoteS3(object):
         """
         self.check_data()
         data = doc.serialize()
-        self.s3.put(self.local_path(doc.uid), self.remote_path(doc.uid))            
-
+        self.s3.put(self.local_path(doc.uid), self.remote_path(doc.uid))
 
     def push_tags(self, tag_data):
         """Post tags to server."""
         self.s3.put()
-
 
     def pull_tags(self):
         """Pull tags from server."""
@@ -253,18 +261,18 @@ class RemoteS3(object):
                     if not fake:
                         try:
                             self.push_doc(doc)
-                            pdoc(doc, c, v)                            
+                            pdoc(doc, c, v)
                         except Exception as e:
-                            click.secho(f"push failed: {doc}, {e}", fg="red")                            
+                            click.secho(f"push failed: {doc}, {e}", fg="red")
                     remote_done.append(doc.uid)
                     continue
                 elif c == RemoteStatus.STATUS_DOES_NOT_EXIST:
                     if not fake:
                         try:
                             self.push_doc(doc)
-                            pdoc(doc, c, v)                            
+                            pdoc(doc, c, v)
                         except Exception as e:
-                            click.secho(f"push failed: {doc}, {e}", fg="red")                            
+                            click.secho(f"push failed: {doc}, {e}", fg="red")
                     remote_done.append(doc.uid)
                     continue
                 elif c == RemoteStatus.STATUS_REMOTE_DELETED:
@@ -292,7 +300,9 @@ class RemoteS3(object):
                 continue
 
             if not fake and rdoc["uid"] not in deleted_index:
-                click.echo(f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}")
+                click.echo(
+                    f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}"
+                )
                 remote_doc = self.fetch_doc(rdoc["uid"])
                 self.store.import_document(
                     remote_doc["uid"],
@@ -305,7 +315,7 @@ class RemoteS3(object):
         # which has a different way of handling tags
         # and we are not pushing our tags
         if not tags:
-            return 
+            return
         remote_tags = self.pull_tags()
         tag_docs = self.pull_tag_associations()
         print(f"Applying remote tags on local docs: {len(tag_docs)}")
@@ -316,6 +326,3 @@ class RemoteS3(object):
             doc.add_tag(tag_name)
             self.store.reindex_doc(doc, write_index_flag=False)
         self.store.write_index()
-        
-
-

@@ -3,8 +3,4 @@ from .remote import Remote
 from .s3remote import RemoteS3
 from .exceptions import OfflineException, RemoteException
 
-REMOTES = {
-    "RemoteREST": Remote,
-    "RemoteS3": RemoteS3
-}
-
+REMOTES = {"RemoteREST": Remote, "RemoteS3": RemoteS3}

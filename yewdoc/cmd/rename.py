@@ -22,4 +22,3 @@ def rename(ctx, name, new_name, list_docs):
         new_name = click.prompt("Enter the new document title ", type=str)
     if new_name:
         doc = yew.store.rename_doc(doc, new_name)
-

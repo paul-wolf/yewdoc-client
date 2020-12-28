@@ -9,7 +9,7 @@ from .. import crypt
 
 @shared.cli.command()
 @click.argument("name", required=False)
-@click.option("--list_docs", "-l", is_flag=True, required=False)
+@click.option("--list_docs", "-l", is_flag=True, default=True, required=False)
 @click.option(
     "--open-file",
     "-o",

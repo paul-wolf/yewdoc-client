@@ -14,6 +14,7 @@ from .constants import RemoteStatus, STATUS_MSG
 from .exceptions import OfflineException, RemoteException
 from .. import utils
 
+
 def pdoc(doc, status, verbose):
     """Print status to stdout."""
 
@@ -45,6 +46,7 @@ def remote_doc_status(doc, remote_index) -> RemoteStatus:
 
     return RemoteStatus.STATUS_UNKNOWN
 
+
 class Remote(object):
     """Handles comms with server."""
 
@@ -70,7 +72,7 @@ class Remote(object):
     def digest_method(self):
         """Return the digest method needed for our remote store."""
         return utils.get_sha_digest
-    
+
     def check_data(self) -> None:
         """Raise exception if not configured properly else None."""
         if not self.token or not self.url:
@@ -97,18 +99,15 @@ class Remote(object):
         url = f"{self.url}/api/delete/{uid}/"
         return requests.delete(url, headers=self.headers, verify=self.verify)
 
-
     def register_user(self, data) -> requests.Response:
         """Register a new user."""
         url = f"{self.url}/doc/register_user/"
         return requests.post(url, data=data, verify=self.verify)
 
-
     def authenticate_user(self, data) -> Optional[requests.Response]:
         """Authenticate a user that should exist on remote."""
         url = f"{self.url}/doc/authenticate_user/"
         return requests.post(url, data=data, verify=self.verify)
-
 
     def ping(self, timeout=3) -> Optional[requests.Response]:
         """Call remote ping() method."""
@@ -214,7 +213,6 @@ class Remote(object):
             return RemoteStatus.STATUS_REMOTE_NEWER
         return RemoteStatus.STATUS_REMOTE_OLDER
 
-
     def push_doc(self, doc) -> RemoteStatus:
         """Serialize and send document.
 
@@ -306,7 +304,6 @@ class Remote(object):
         except Exception as e:
             click.echo(f"cannot connect: {e}")
 
-
         if name:
             docs_local = shared.get_document_selection(ctx, name, list_docs)
         else:
@@ -365,7 +362,9 @@ class Remote(object):
                     # this happens for symlinks for instance
                     pdoc(doc, c, v)
                 else:
-                    raise Exception("Invalid remote status   : %s for %s" % (c, str(doc)))
+                    raise Exception(
+                        "Invalid remote status   : %s for %s" % (c, str(doc))
+                    )
             except Exception as e:
                 print(f"An error occured trying to sync {doc}: {e}")
                 traceback.print_exc()
@@ -381,7 +380,9 @@ class Remote(object):
                 continue
 
             if not fake and rdoc["uid"] not in deleted_index:
-                click.echo(f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}")
+                click.echo(
+                    f"importing doc: {rdoc['uid'].split('-')[0]} {rdoc['title']}"
+                )
                 remote_doc = self.fetch_doc(rdoc["uid"])
                 self.store.import_document(
                     remote_doc["uid"],
@@ -394,7 +395,7 @@ class Remote(object):
         # which has a different way of handling tags
         # and we are not pushing our tags
         if not tags:
-            return 
+            return
         remote_tags = self.pull_tags()
         tag_docs = self.pull_tag_associations()
         print(f"Applying remote tags on local docs: {len(tag_docs)}")

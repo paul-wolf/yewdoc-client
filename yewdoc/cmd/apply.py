@@ -16,7 +16,7 @@ def apply(ctx, action_name, name, exact, tags):
 
     Actions are in the subdirectory `actions`
 
-    The specified action is applied to each found document. 
+    The specified action is applied to each found document.
 
     """
     yew = ctx.obj["YEW"]

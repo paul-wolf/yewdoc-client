@@ -19,7 +19,7 @@ def ping(ctx):
     if r.status_code == 200:
         sdt = dateutil.parser.parse(r.json())
         if not sdt:
-            return 
+            return
         click.echo("Server time  : %s" % sdt)
         click.echo("Here time    : {}".format(datetime.datetime.now()))
         n = datetime.datetime.now()

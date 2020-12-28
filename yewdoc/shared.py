@@ -38,12 +38,14 @@ class YewCLI:
             try:
                 remote_class = REMOTES[remote_name]
             except KeyError:
-                click.echo(f"Could not find {remote_name} as a remote type; choices are: {list(REMOTES.keys())}; check settings.")
+                click.echo(
+                    f"Could not find {remote_name} as a remote type; choices are: {list(REMOTES.keys())}; check settings."
+                )
                 sys.exit(1)
         self.remote = remote_class(self.store)
         self.actions = ACTION_HANDLERS
         if debug:
-            print(f"***************** {remote_class.__name__} ************")        
+            print(f"***************** {remote_class.__name__} ************")
 
 
 @click.group()
@@ -80,12 +82,12 @@ def parse_ranges(s):
 def document_menu(docs, multiple=False) -> List[Document]:
     """Show list of docs. Return selection.
 
-    Multiple means use can provide a range otherwise, 
+    Multiple means use can provide a range otherwise,
     a list with a single doc is returned.
     """
     if not len(docs):
         return list()
-    
+
     for index, doc in enumerate(docs):
         click.echo(f"{index}) {doc.name} ({doc.short_uid()})")
     if multiple:
@@ -105,7 +107,9 @@ def document_menu(docs, multiple=False) -> List[Document]:
     return [docs[v]]
 
 
-def get_document_selection(ctx, name, list_docs, tags=None, multiple=False) -> List[Document]:
+def get_document_selection(
+    ctx, name, list_docs, tags=None, multiple=False
+) -> List[Document]:
     """Present lists or whatever to get doc choice.
 
     name (str): a title or partial title to use as search
@@ -120,7 +124,7 @@ def get_document_selection(ctx, name, list_docs, tags=None, multiple=False) -> L
 
     """
     yew = ctx.obj["YEW"]
-    # import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
     if name and is_uuid(name):
         return [yew.store.get_doc(name)]
 

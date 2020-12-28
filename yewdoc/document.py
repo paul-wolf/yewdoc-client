@@ -113,7 +113,7 @@ class Document(object):
     @property
     def filename(self):
         return self.get_filename()
-    
+
     def get_path(self):
         return os.path.join(
             self.store.yew_dir,

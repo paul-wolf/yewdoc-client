@@ -5,6 +5,7 @@ import click
 
 from .. import shared
 
+
 def print_tags(store, tagname):
     stats = defaultdict(int)
     tagged_count = 0
@@ -19,7 +20,6 @@ def print_tags(store, tagname):
         if tagname and k != tagname:
             continue
         print(f"{k}: {v}")
-
 
 
 @shared.cli.command()

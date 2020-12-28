@@ -67,7 +67,7 @@ def ls(ctx, name, info, humanize, exact, tags, sort, size, descending):
             else:
                 click.echo("    ", nl=False)
 
-        click.echo(click.style(doc.name, fg='green'), nl=False)
+        click.echo(click.style(doc.name, fg="green"), nl=False)
         if info > 1:
             click.echo("")
             print(doc.get_content()[:250])

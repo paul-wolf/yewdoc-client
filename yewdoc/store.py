@@ -47,6 +47,7 @@ from . import file_system as fs
 from .settings import Preferences
 from . import utils
 
+
 def read_document_index(user_directory) -> List:
     """Read document index into list."""
 
@@ -98,7 +99,7 @@ class YewStore(object):
 
         # this gets injected later by remote, but let's use a default
         self.digest_method = utils.get_sha_digest
-        
+
     def get_gnupg_exists(self):
         """Retro fit this."""
         fs.get_gnupg_exists()

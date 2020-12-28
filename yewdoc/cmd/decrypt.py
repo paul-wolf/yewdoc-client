@@ -23,7 +23,6 @@ def decrypt(ctx, name, list_docs, gpghome):
 
     docs = shared.get_document_selection(ctx, name, list_docs)
 
-
     if not docs:
         sys.exit(0)
 
