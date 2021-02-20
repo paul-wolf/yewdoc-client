@@ -2,7 +2,7 @@
 import sys
 import json
 import os
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Final
 import datetime
 import traceback
 
@@ -179,9 +179,12 @@ class RemoteS3(object):
         """Get list of remote documents."""
         # import ipdb; ipdb.set_trace()
         data = list()
+        ctr = 0
         for f in self.s3.walk(f"{self.bucket}/{self.store.username}", detail=True):
             # f is a sequence of 3 elements; we want last element
             entry = f[2]
+            ctr += 1
+            print(f"{ctr}\r", end="")
             if entry:
                 for fn, file_info in entry.items():
                     if file_info["type"] == "file" and not fn.startswith("__"):
@@ -207,7 +210,7 @@ class RemoteS3(object):
 
         """
         self.check_data()
-        data = doc.serialize()
+        # data = doc.serialize()
         self.s3.put(self.local_path(doc.uid), self.remote_path(doc.uid))
 
     def push_tags(self, tag_data):
@@ -218,7 +221,7 @@ class RemoteS3(object):
         """Pull tags from server."""
         self.s3.get()
 
-    def sync(self, name, force, prune, verbose, fake, tags, list_docs):
+    def sync(self, name, force, prune, verbose, fake, tags, list_docs, ctx=None):
         """Pushes local docs and pulls docs from remote.
 
         We don't overwrite newer docs.
@@ -229,16 +232,22 @@ class RemoteS3(object):
         v = verbose
         try:
             r = self.ping()
+            print(f"Ping success: {r}")
         except Exception as e:
             click.echo(f"cannot connect: {e}")
 
         if name:
-            docs_local = shared.get_document_selection(ctx, name, list_docs)
+            # docs_local = shared.get_document_selection(ctx, name, list_docs)
+            pass
         else:
+            print("Getting local docs")
             docs_local = self.store.get_docs()
+            print(f"Found {len(docs_local)} local docs")
         remote_done = []
         deleted_index = self.store.get_deleted_index()
+        print("Getting remote index")
         remote_index = self.list_docs()
+        print(f"Found {len(remote_index)} remote docs")
         # print(json.dumps(remote_index, indent=4, default=str))
         for doc in docs_local:
             try:
@@ -287,6 +296,7 @@ class RemoteS3(object):
                 else:
                     raise Exception(f"Invalid remote status: {c} for {doc}")
             except Exception as e:
+                print(e)
                 traceback.print_exc()
         print("")
 

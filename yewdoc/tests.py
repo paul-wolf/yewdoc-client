@@ -148,7 +148,7 @@ class TestYewdocsClient(unittest.TestCase):
             cli, [f"--user={TEST_USERNAME}", "rename", name_old, name_new]
         )
         assert result.exit_code == 0
-        renamed = self.store.get_doc(doc.uid)
+        self.store.get_doc(doc.uid)
         # assert renamed.name == name_new
 
     def test_ls_document(self):

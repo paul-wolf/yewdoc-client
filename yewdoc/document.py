@@ -14,15 +14,15 @@ from .utils import (
 
 from . import file_system as fs
 
+# from .store import Yewstore
+
 DOC_KINDS = ["md", "txt", "rst", "json"]
 
 
 class Document(object):
     """Describes a document."""
 
-    def __init__(
-        self, store: "YewStore", uid: str, name: str, kind: str, encrypt: int = 0
-    ):
+    def __init__(self, store, uid: str, name: str, kind: str, encrypt: int = 0):
         self.store = store
         self.uid = uid
         self.name = name

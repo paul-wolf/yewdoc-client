@@ -17,6 +17,7 @@ def kind(ctx, name, kind, list_docs):
     docs = shared.get_document_selection(ctx, name, list_docs)
     if not docs:
         return
+    doc = docs[0]
     if not kind:
         click.echo(doc)
         click.echo(f"Current document kind: '{doc.kind}'")
@@ -24,5 +25,4 @@ def kind(ctx, name, kind, list_docs):
             click.echo(k)
         kind = click.prompt("Select the new document kind ", type=str)
     click.echo(f"Changing document kind to: {kind}")
-    doc = docs[0]
     yew.store.change_doc_kind(doc, kind)

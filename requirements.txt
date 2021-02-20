@@ -12,5 +12,6 @@ mock==3.0.5
 python-gnupg==0.4.5
 glom
 s3fs
+pytest
 
 

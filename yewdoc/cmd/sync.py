@@ -50,4 +50,4 @@ def sync(ctx, name, force, prune, verbose, fake, tags, list_docs):
 
     """
     yew = ctx.obj["YEW"]
-    yew.remote.sync(name, force, prune, verbose, fake, tags, list_docs)
+    yew.remote.sync(name, force, prune, verbose, fake, tags, list_docs, ctx)

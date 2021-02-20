@@ -16,4 +16,4 @@ def path(ctx, name, list_docs):
     docs = shared.get_document_selection(ctx, name, list_docs)
     if not docs:
         sys.exit(1)
-    click.echo(doc[0].path)
+    click.echo(docs[0].path)

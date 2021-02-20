@@ -18,7 +18,7 @@ from .. import shared
 @click.pass_context
 def cp(ctx, name, destination, tags, list_docs=False, force=False, preserve=False):
     """Copy one or more docs to destination."""
-    yew = ctx.obj["YEW"]
+    # yew = ctx.obj["YEW"]
     #  import ipdb; ipdb.set_trace()
     if name and not destination:
         destination = name

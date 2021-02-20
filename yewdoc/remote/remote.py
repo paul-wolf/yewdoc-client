@@ -3,6 +3,7 @@ import sys
 import json
 import os
 from typing import Optional, Dict, List
+import traceback
 
 import click
 import dateutil
@@ -289,7 +290,7 @@ class Remote(object):
         r = requests.get(url, headers=self.headers, verify=self.verify)
         return json.loads(r.content)
 
-    def sync(self, name, force, prune, verbose, fake, tags, list_docs):
+    def sync(self, name, force, prune, verbose, fake, tags, list_docs, ctx=None):
         """Pushes local docs and pulls docs from remote.
 
         We don't overwrite newer docs.
@@ -305,7 +306,8 @@ class Remote(object):
             click.echo(f"cannot connect: {e}")
 
         if name:
-            docs_local = shared.get_document_selection(ctx, name, list_docs)
+            # docs_local = shared.get_document_selection(ctx, name, list_docs)
+            pass
         else:
             docs_local = self.store.get_docs()
         remote_done = []
