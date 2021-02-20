@@ -2,6 +2,7 @@ YEWDOCS
 =======
 
 [![Run pytest](https://github.com/paul-wolf/yewdoc-client/actions/workflows/main.yml/badge.svg)](https://github.com/paul-wolf/yewdoc-client/actions/workflows/main.yml)
+[![Documentation Status](https://readthedocs.org/projects/yewdocs/badge/?version=latest)](https://yewdocs.readthedocs.io/en/latest/?badge=latest)
 
 Yewdocs is a personal document manager that makes creating and editing
 text documents from the command line easier than using only an editor
