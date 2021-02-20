@@ -1,4 +1,4 @@
-Welcome to yewdocs's documentation!
+Welcome to yewdocs' documentation!
 ===================================
 
 Yewdocs is a personal document manager that makes creating and editing

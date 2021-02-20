@@ -1,22 +1,23 @@
 Installation
 ============
 
-Yewdocs works with Python >= 3.6
+Yewdocs works with Python >= 3.8
 
 Make sure you have Python3 installed. Make sure you have pip3 working.
 
-pandoc must be installed following the instructions specific to your
+You can user yewdocs without `Pandoc <https://pandoc.org/>`_, but some nice features will be missing like
+converting documents to other types, pdf, html, docx, etc. Pandoc must be installed following the instructions specific to your
 operating system.
 
 MacOS:
 
-:: shell
+::
 
    brew install pandoc
 
 Ubuntu:
 
-:: shell
+::
 
    sudo apt-get install pandoc
 
@@ -47,3 +48,12 @@ available. Now type:
    yd info
 
 You should see output about settings.
+
+For PDF exports, you’ll need to also install `pdflatext
+<https://www.latex-project.org/get/>`_ in addition to pandoc:
+
+On macos:
+
+::
+
+   brew cask install mactex
