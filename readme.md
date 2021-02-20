@@ -327,6 +327,59 @@ context. Yewdocs tries to get the user via several means:
 
 where `yewser` is the desired username. 
 
+
+Using Different Remotes
+=======================
+
+You can sync your collection of documents to a remote backend to make
+them available across different devices/workstations. 
+
+Two remotes are possible: Web and AWS S3 storage. You can add your own
+remote backend, see `remote` directory for the source code.
+
+For S3, you need an AWS account and access credentials. In the
+~/.yew.d/settings.json you configure access to the remote.
+
+
+``` json
+{
+    "location": {
+        "default": {
+            "remote_type": "RemoteS3",
+            "aws_access_key_id": "XXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "aws_secret_access_key": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+            "s3_bucket": "my-personal-bucket"
+        }
+    }
+}
+```
+
+The remote REST backend is configured something like this:
+
+``` json
+{
+    "location": {
+        "default": {
+            "remote_type": "RemoteREST",
+            "url": "https://doc.yew.io",
+            "email": "paul.wolf@ripeco.com",
+            "username": "paul",
+            "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "first_name": "Blah",
+            "last_name": "Wolf",
+            "token": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        }
+    }
+}
+```
+
+
+
+
+
+
+
+
 Some Technical Details
 ======================
 
@@ -463,6 +516,12 @@ location.default.password = None
 location.default.first_name = Paul
 location.default.last_name = Wolf
 location.default.token = fe0be94826b451bba72j54tjnwlr2jrn2o5cd9b
+```
+
+## Setting up the environment for development
+
+``` shell
+python -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
 ```
 
 
