@@ -13,5 +13,7 @@ python-gnupg==0.4.5
 glom
 s3fs
 pytest
-
+sphinx
+sphinx-autobuild
+sphinx_rtd_theme
 
